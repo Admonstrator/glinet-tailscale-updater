@@ -27,6 +27,14 @@ if [ "${FIRMWARE_VERSION:0:1}" -lt 4 ]; then
     exit 1
 fi
 
+# Check if enough space is available
+AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4}')
+if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
+    echo "Not enough space available. Please free up some space and try again."
+    echo "The script needs at least 130 MB of free space."
+    exit 1
+fi
+
 # Get latest tailscale version
 TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
 
