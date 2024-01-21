@@ -10,6 +10,22 @@
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 
+# Detect architecture
+ARCH=$(uname -m)
+# Only continue if architecture is arm64
+if [ "$ARCH" != "aarch64" ]; then
+    echo "This script only works on arm64 architecture."
+    exit 1
+fi
+
+# Detect firmware version
+FIRMWARE_VERSION=$(cat /etc/glversion)
+# Only continue if firmware version is 4 or higher
+if [ "${FIRMWARE_VERSION:0:1}" -lt 4 ]; then
+    echo "This script only works on firmware version 4 or higher."
+    exit 1
+fi
+
 # Get latest tailscale version
 TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
 
@@ -17,7 +33,6 @@ echo "Another GL.iNET router script by Admon for the GL.iNET community"
 echo "---"
 echo "WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!"
 echo "It's only recommended to use this script if you know what you're doing."
-echo "Tested on MT-6000 (Flint2) with firmware 4.5.4"
 echo "---"
 echo "This script will update tailscale to $TAILSCALE_VERSION_NEW on your router."
 echo "Do you want to continue? (y/N)"
