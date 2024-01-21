@@ -29,6 +29,12 @@ fi
 # Get latest tailscale version
 TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
 
+# Stop if tailscale URL is empty
+if [ -z "$TAILSCALE_VERSION_NEW" ]; then
+    echo "Could not get latest tailscale version. Please check your internet connection."
+    exit 1
+fi
+
 echo "Another GL.iNET router script by Admon for the GL.iNET community"
 echo "---"
 echo "WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!"
