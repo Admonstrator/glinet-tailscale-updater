@@ -2,7 +2,7 @@
 #
 #
 # Description: This script updates tailscale on GL.iNet routers
-# Thread: 
+# Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Date: 2024-01-21
 #
