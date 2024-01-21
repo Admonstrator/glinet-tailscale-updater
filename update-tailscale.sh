@@ -5,7 +5,7 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Date: 2024-01-21
-# Version: 0.1
+# Version: 0.2
 #
 # Usage: ./update-tailscale.sh
 # Warning: This script might potentially harm your router. Use it at your own risk.
@@ -20,9 +20,9 @@ if [ "$ARCH" != "aarch64" ]; then
 fi
 
 # Detect firmware version
-FIRMWARE_VERSION=$(cat /etc/glversion)
+FIRMWARE_VERSION=$(cut -c1 < /etc/glversion)
 # Only continue if firmware version is 4 or higher
-if [ "${FIRMWARE_VERSION:0:1}" -lt 4 ]; then
+if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
     echo "This script only works on firmware version 4 or higher."
     exit 1
 fi
@@ -82,3 +82,5 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
 else
     echo "Ok, see you next time!"
 fi
+
+exit 0
