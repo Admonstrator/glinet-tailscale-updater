@@ -30,7 +30,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     cp /usr/sbin/tailscale /usr/sbin/tailscale.bak
     echo "The backup of tailscale is located at /usr/sbin/tailscaled.bak and /usr/sbin/tailscale.bak"
     # Download latest tailscale
-    echo "Downloading latest tailscale ..."
+    echo "Downloading latest tailscale version ..."
     wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW 2&> /dev/null
     # Extract tailscale
     echo "Extracting tailscale ..."
