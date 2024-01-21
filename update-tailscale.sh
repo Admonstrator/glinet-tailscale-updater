@@ -45,6 +45,9 @@ echo "Do you want to continue? (y/N)"
 read answer
 
 if [ "$answer" != "${answer#[Yy]}" ]; then
+    # Stop tailscale
+    echo "Stopping tailscale ..."
+    /etc/init.d/tailscale stop 2&> /dev/null
     # Create backup of tailscale
     echo "Creating backup of tailscale ..."
     cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
@@ -56,9 +59,6 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     # Extract tailscale
     echo "Extracting tailscale ..."
     tar -xzf /tmp/tailscale.tar.gz -C /tmp/tailscale 2&> /dev/null
-    # Stop tailscale
-    echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop 2&> /dev/null
     # Copy tailscale to /usr/sbin
     echo "Copying tailscale to /usr/sbin ..."
     cp /tmp/tailscale/*/tailscale /usr/sbin/tailscale 2&> /dev/null
