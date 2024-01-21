@@ -5,6 +5,7 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Date: 2024-01-21
+# Version: 0.1
 #
 # Usage: ./update-tailscale.sh
 # Warning: This script might potentially harm your router. Use it at your own risk.
