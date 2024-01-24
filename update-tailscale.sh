@@ -56,7 +56,7 @@ read answer
 if [ "$answer" != "${answer#[Yy]}" ]; then
     # Stop tailscale
     echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop 2&> /dev/null
+    /etc/init.d/tailscale stop
     # Create backup of tailscale
     echo "Creating backup of tailscale ..."
     cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
@@ -64,21 +64,21 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     echo "The backup of tailscale is located at /usr/sbin/tailscaled.bak and /usr/sbin/tailscale.bak"
     # Download latest tailscale
     echo "Downloading latest tailscale version ..."
-    wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW 2&> /dev/null
+    wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW
     # Extract tailscale
     echo "Extracting tailscale ..."
     mkdir /tmp/tailscale
-    tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale 2&> /dev/null
+    tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
     # Copy tailscale to /usr/sbin
     echo "Copying tailscale to /usr/sbin ..."
-    cp /tmp/tailscale/*/tailscale /usr/sbin/tailscale 2&> /dev/null
-    cp /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled 2&> /dev/null
+    cp /tmp/tailscale/*/tailscale /usr/sbin/tailscale
+    cp /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled
     # Remove temporary files
     echo "Removing temporary files ..."
-    rm -rf /tmp/tailscale.tar.gz /tmp/tailscale 2&> /dev/null
+    rm -rf /tmp/tailscale.tar.gz /tmp/tailscale
     # Restart tailscale
     echo "Restarting tailscale ..."
-    /etc/init.d/tailscale restart 2&> /dev/null
+    /etc/init.d/tailscale restart
     echo "Done!"
 else
     echo "Ok, see you next time!"
