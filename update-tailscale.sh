@@ -56,7 +56,7 @@ read answer
 if [ "$answer" != "${answer#[Yy]}" ]; then
     # Stop tailscale
     echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop
+    /etc/init.d/tailscale stop &> /dev/null
     # Create backup of tailscale
     echo "Creating backup of tailscale ..."
     cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
