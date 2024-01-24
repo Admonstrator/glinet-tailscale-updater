@@ -78,7 +78,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     rm -rf /tmp/tailscale.tar.gz /tmp/tailscale
     # Restart tailscale
     echo "Restarting tailscale ..."
-    /etc/init.d/tailscale restart
+    /etc/init.d/tailscale restart &> /dev/null
     echo "Done!"
 else
     echo "Ok, see you next time!"
