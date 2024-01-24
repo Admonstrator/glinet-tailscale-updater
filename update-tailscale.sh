@@ -56,7 +56,7 @@ read answer
 if [ "$answer" != "${answer#[Yy]}" ]; then
     # Stop tailscale
     echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop &> /dev/null
+    /etc/init.d/tailscale stop 2&> /dev/null
     # Create backup of tailscale
     echo "Creating backup of tailscale ..."
     cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
@@ -78,7 +78,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     rm -rf /tmp/tailscale.tar.gz /tmp/tailscale
     # Restart tailscale
     echo "Restarting tailscale ..."
-    /etc/init.d/tailscale restart &> /dev/null
+    /etc/init.d/tailscale restart 2&> /dev/null
     # Print new tailscale version
     echo "Script finished successfully. The new tailscale version is:"
     tailscale version
