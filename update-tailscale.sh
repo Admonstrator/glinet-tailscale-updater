@@ -67,7 +67,8 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW 2&> /dev/null
     # Extract tailscale
     echo "Extracting tailscale ..."
-    tar -xzf /tmp/tailscale.tar.gz -C /tmp/tailscale 2&> /dev/null
+    mkdir /tmp/tailscale
+    tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale 2&> /dev/null
     # Copy tailscale to /usr/sbin
     echo "Copying tailscale to /usr/sbin ..."
     cp /tmp/tailscale/*/tailscale /usr/sbin/tailscale 2&> /dev/null
