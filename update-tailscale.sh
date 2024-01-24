@@ -79,7 +79,10 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     # Restart tailscale
     echo "Restarting tailscale ..."
     /etc/init.d/tailscale restart &> /dev/null
-    echo "Done!"
+    # Print new tailscale version
+    echo "Script finished successfully. The new tailscale version is:"
+    tailscale version
+    tailscaled --version
 else
     echo "Ok, see you next time!"
 fi
