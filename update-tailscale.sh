@@ -13,9 +13,13 @@
 
 # Detect architecture
 ARCH=$(uname -m)
-# Only continue if architecture is arm64
-if [ "$ARCH" != "aarch64" ]; then
-    echo "This script only works on arm64 architecture."
+# Choose TAILSCALE_VERSION based on architecture
+if [ "$ARCH" = "aarch64" ]; then
+    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
+elif [ "$ARCH" = "armv7l" ]; then
+    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+else
+    echo "This script only works on arm64 and armv7."
     exit 1
 fi
 
@@ -34,9 +38,6 @@ if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
     echo "The script needs at least 130 MB of free space."
     exit 1
 fi
-
-# Get latest tailscale version
-TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
 
 # Stop if tailscale URL is empty
 if [ -z "$TAILSCALE_VERSION_NEW" ]; then
