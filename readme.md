@@ -9,7 +9,7 @@ It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet co
 Run the script with the following command:
 
 ```shell
-./update-tailscale.sh
+./update-tailscale.sh [--ignore-free-space]
 ```
 
 You can run it without cloning the repository by using the following command:
@@ -17,6 +17,14 @@ You can run it without cloning the repository by using the following command:
 ```shell
 wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh && sh update-tailscale.sh
 ```
+
+## Running on devices with low free space
+
+You can use --ignore-free-space to ignore the free space check. This is useful for devices with low free space.
+
+In that case there will be no backup of the original files and the script will not check if there is enough free space to download the new files. Could potentially break your router if there is not enough free space.
+
+```shell
 
 ## Feedback
 
