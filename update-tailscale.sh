@@ -39,13 +39,16 @@ if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
     exit 1
 fi
 
-# Check if enough space is available
-if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
+if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+    echo "Skipping free space check, because --ignore-free-space is used"
+else
+    if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
     echo "Not enough space available. Please free up some space and try again."
     echo "The script needs at least 130 MB of free space."
     echo "---"
     echo "On devices with less internal storage, you can use --ignore-free-space to continue."
     exit 1
+    fi
 fi
 
 # Stop if tailscale URL is empty
