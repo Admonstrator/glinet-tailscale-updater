@@ -7,24 +7,32 @@
 # Date: 2024-01-24
 # Version: 0.3
 #
-# Usage: ./update-tailscale.sh
+# Usage: ./update-tailscale.sh [--ignore-free-space]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
-
-# Detect architecture
+# Populate variables
+AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4}')
 ARCH=$(uname -m)
-# Choose TAILSCALE_VERSION based on architecture
+FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
+
+# Check if --ignore-free-space is used
+if [ "$1" = "--ignore-free-space" ]; then
+    IGNORE_FREE_SPACE=1
+else
+    IGNORE_FREE_SPACE=0
+fi
+
+# Choose TAILSCALE_VERSION_NEW based on architecture
 if [ "$ARCH" = "aarch64" ]; then
-    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
+    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
 elif [ "$ARCH" = "armv7l" ]; then
-    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/#static | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+    TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
 else
     echo "This script only works on arm64 and armv7."
     exit 1
 fi
 
 # Detect firmware version
-FIRMWARE_VERSION=$(cut -c1 < /etc/glversion)
 # Only continue if firmware version is 4 or higher
 if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
     echo "This script only works on firmware version 4 or higher."
@@ -32,10 +40,11 @@ if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
 fi
 
 # Check if enough space is available
-AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4}')
 if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
     echo "Not enough space available. Please free up some space and try again."
     echo "The script needs at least 130 MB of free space."
+    echo "---"
+    echo "On devices with less internal storage, you can use --ignore-free-space to continue."
     exit 1
 fi
 
@@ -45,24 +54,48 @@ if [ -z "$TAILSCALE_VERSION_NEW" ]; then
     exit 1
 fi
 
+# Function for backup
+backup() {
+    echo "Creating backup of tailscale ..."
+    cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
+    cp /usr/sbin/tailscale /usr/sbin/tailscale.bak
+    echo "The backup of tailscale is located at /usr/sbin/tailscaled.bak and /usr/sbin/tailscale.bak"
+}
+
 echo "Another GL.iNET router script by Admon for the GL.iNET community"
 echo "---"
-echo "WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!"
-echo "It's only recommended to use this script if you know what you're doing."
+echo -e "\033[31mWARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!\033[0m"
+echo -e "\033[31mIt's only recommended to use this script if you know what you're doing.\033[0m"
 echo "---"
 echo "This script will update tailscale to $TAILSCALE_VERSION_NEW on your router."
 echo "Do you want to continue? (y/N)"
 read answer
 
 if [ "$answer" != "${answer#[Yy]}" ]; then
+    # Ask for confirmation when --ignore-free-space is used
+    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+        echo -e "\033[31m---\033[0m"
+        echo -e "\033[31mWARNING: --ignore-free-space is used. There will be no backup of your current version of tailscale!\033[0m"
+        echo -e "\033[31mYou might need to reset your router to factory settings if something goes wrong.\033[0m"
+        echo -e "\033[31m---\033[0m"
+        echo "Are you sure you want to continue? (y/N)"
+        read answer
+        if [ "$answer" != "${answer#[Yy]}" ]; then
+            echo "Ok, continuing ..."
+        else
+            echo "Ok, see you next time!"
+            exit 0
+        fi
+    fi
     # Stop tailscale
     echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop 2&> /dev/null
+    /etc/init.d/tailscale stop 2&>/dev/null
     # Create backup of tailscale
-    echo "Creating backup of tailscale ..."
-    cp /usr/sbin/tailscaled /usr/sbin/tailscaled.bak
-    cp /usr/sbin/tailscale /usr/sbin/tailscale.bak
-    echo "The backup of tailscale is located at /usr/sbin/tailscaled.bak and /usr/sbin/tailscale.bak"
+    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+        echo "Skipping backup, because --ignore-free-space is used"
+    else
+        backup
+    fi
     # Download latest tailscale
     echo "Downloading latest tailscale version ..."
     wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW
@@ -70,18 +103,20 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     echo "Extracting tailscale ..."
     mkdir /tmp/tailscale
     tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
-    # Copy tailscale to /usr/sbin
-    echo "Copying tailscale to /usr/sbin ..."
-    cp /tmp/tailscale/*/tailscale /usr/sbin/tailscale
-    cp /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled
+    # Removing archive
+    rm /tmp/tailscale.tar.gz
+    # Moving tailscale to /usr/sbin
+    echo "Moving tailscale to /usr/sbin ..."
+    mv /tmp/tailscale/*/tailscale /usr/sbin/tailscale
+    mv /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled
     # Remove temporary files
     echo "Removing temporary files ..."
-    rm -rf /tmp/tailscale.tar.gz /tmp/tailscale
+    rm -rf /tmp/tailscale
     # Restart tailscale
     echo "Restarting tailscale ..."
-    /etc/init.d/tailscale restart 2&> /dev/null
+    /etc/init.d/tailscale restart 2&>/dev/null
     # Print new tailscale version
-    echo "Script finished successfully. The new tailscale version is:"
+    echo "Script finished successfully. The new tailscale version (software, daemon) is:"
     tailscale version
     tailscaled --version
 else
