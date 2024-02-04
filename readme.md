@@ -24,8 +24,6 @@ You can use --ignore-free-space to ignore the free space check. This is useful f
 
 In that case there will be no backup of the original files and the script will not check if there is enough free space to download the new files. Could potentially break your router if there is not enough free space.
 
-```shell
-
 ## Feedback
 
 Feel free to provide feedback in the [GL.iNet forum](https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582).
