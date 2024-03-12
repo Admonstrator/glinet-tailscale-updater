@@ -9,7 +9,7 @@ It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet co
 Run the script with the following command:
 
 ```shell
-./update-tailscale.sh [--ignore-free-space]
+./update-tailscale.sh [--ignore-free-space] [--force]
 ```
 
 You can run it without cloning the repository by using the following command:
@@ -17,6 +17,10 @@ You can run it without cloning the repository by using the following command:
 ```shell
 wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh && sh update-tailscale.sh
 ```
+
+## Force update
+
+By using the --force option, the script will skip all confirmation prompts. It will make the install permanent. This is useful for unattended installations. In combination with --ignore-free-space, it will also skip the free space check.
 
 ## Running on devices with low free space
 
@@ -31,13 +35,11 @@ Feel free to provide feedback in the [GL.iNet forum](https://forum.gl-inet.com/t
 ## Reverting
 
 To revert the changes, replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files.
-The original files can be found in the `/usr/sbin/` folder - they are named `tailscaled.bak` and `tailscale.bak`.
+The original files can be found in the `/root/tailscale.bak` folder - they are named `tailscaled` and `tailscale`.
 
 ## Disclaimer
 
 This script is provided as is and without any warranty. Use it at your own risk.
-
-**It's a really early stage and definitely not ready for production use.**
 
 **It may break your router, your computer, your network or anything else. It may even burn down your house.**
 
