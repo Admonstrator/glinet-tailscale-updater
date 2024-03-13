@@ -79,6 +79,10 @@ backup() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ C R E A T I N G   B A C K U P   O F   T A I L S C A L E                │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
+    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+        echo -e "\033[31mSkipping backup!\033[0m"
+        return
+    fi
     mkdir -p /root/tailscale.bak
     cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
     cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
