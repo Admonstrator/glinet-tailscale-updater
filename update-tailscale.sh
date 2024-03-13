@@ -86,9 +86,10 @@ get_latest_tailscale_version() {
     echo "Detecting latest tailscale version ..."
     if [ "$ARCH" = "aarch64" ]; then
         TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
-    fi
-    if [ "$ARCH" = "armv7l" ]; then
+    elif [ "$ARCH" = "armv7l" ]; then
         TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+    elif [ "$ARCH" = "mips" ]; then
+        TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
     fi
     if [ -z "$TAILSCALE_VERSION_NEW" ]; then
         echo -e "\033[31mx\033[0m ERROR: Could not get latest tailscale version. Please check your internet connection."
