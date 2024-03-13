@@ -81,12 +81,12 @@ backup() {
     echo "└────────────────────────────────────────────────────────────────────────┘"
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
         echo -e "\033[31mSkipping backup!\033[0m"
-        return
+    else
+        mkdir -p /root/tailscale.bak
+        cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
+        cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
+        echo "The backup of tailscale is located in /root/tailscale.bak/"
     fi
-    mkdir -p /root/tailscale.bak
-    cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
-    cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
-    echo "The backup of tailscale is located in /root/tailscale.bak/"
 }
 
 get_latest_tailscale_version() {
