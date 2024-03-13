@@ -25,7 +25,7 @@ invoke_intro() {
     echo "│ Prerequisites:                                                         │"
     echo "│ 1. At least 130 MB of free space.                                      │"
     echo "│ 2. Firmware version 4 or higher.                                       │"
-    echo "│ 3. Architecture arm64 or armv7.                                        │"
+    echo "│ 3. Architecture arm64, armv7 or mips.                                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
 }
 
@@ -49,6 +49,8 @@ preflight_check(){
         echo -e "\033[32m✓\033[0m Architecture: arm64"
     elif [ "$ARCH" = "armv7l" ]; then
         echo -e "\033[32m✓\033[0m Architecture: armv7"
+    elif [ "$ARCH" = "mips" ]; then
+        echo -e "\033[32m✓\033[0m Architecture: mips"
     else
         echo -e "\033[31mx\033[0m ERROR: This script only works on arm64 and armv7."
         PREFLIGHT=1
