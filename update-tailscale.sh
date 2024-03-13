@@ -59,7 +59,11 @@ preflight_check(){
         echo -e "\033[31mx\033[0m ERROR: Not enough space available. Please free up some space and try again."
         echo "The script needs at least 130 MB of free space. Available space: $AVAILABLE_SPACE KB"
         echo "If you want to continue, you can use --ignore-free-space to ignore this check."
-        PREFLIGHT=1
+        if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+            echo "--ignore-free-space flag is used. Ignoring free space check ..."
+        else
+            PREFLIGHT=1
+        fi
     else
         echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE KB"
     fi
