@@ -25,7 +25,7 @@ invoke_intro() {
     echo "│ Prerequisites:                                                         │"
     echo "│ 1. At least 130 MB of free space.                                      │"
     echo "│ 2. Firmware version 4 or higher.                                       │"
-    echo "│ 3. Architecture arm64 or armv7.                                        │"
+    echo "│ 3. Architecture arm64, armv7 or mips.                                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
 }
 
@@ -33,7 +33,8 @@ preflight_check(){
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ P R E F L I G H T   C H E C K                                          │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4}')
+    AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
+    AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
     ARCH=$(uname -m)
     FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
     PREFLIGHT=0
@@ -49,17 +50,24 @@ preflight_check(){
         echo -e "\033[32m✓\033[0m Architecture: arm64"
     elif [ "$ARCH" = "armv7l" ]; then
         echo -e "\033[32m✓\033[0m Architecture: armv7"
+    elif [ "$ARCH" = "mips" ]; then
+        echo -e "\033[32m✓\033[0m Architecture: mips"
     else
-        echo -e "\033[31mx\033[0m ERROR: This script only works on arm64 and armv7."
+        echo -e "\033[31mx\033[0m ERROR: This script only works on arm64, armv7 and mips."
         PREFLIGHT=1
     fi
-    if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
+    if [ "$AVAILABLE_SPACE" -lt 130 ]; then
         echo -e "\033[31mx\033[0m ERROR: Not enough space available. Please free up some space and try again."
-        echo "The script needs at least 130 MB of free space."
+        echo "The script needs at least 130 MB of free space. Available space: $AVAILABLE_SPACE MB"
         echo "If you want to continue, you can use --ignore-free-space to ignore this check."
-        PREFLIGHT=1
+        if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+            echo -e "\033[31mWARNING: --ignore-free-space flag is used. Continuing without enough space ...\033[0m"
+            echo -e "\033[31mCurrent available space: $AVAILABLE_SPACE MB\033[0m"
+        else
+            PREFLIGHT=1
+        fi
     else
-        echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE KB"
+        echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE MB"
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         echo -e "\033[31mERROR: Prerequisites are not met. Exiting ...\033[0m"
@@ -73,10 +81,14 @@ backup() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ C R E A T I N G   B A C K U P   O F   T A I L S C A L E                │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    mkdir -p /root/tailscale.bak
-    cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
-    cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
-    echo "The backup of tailscale is located in /root/tailscale.bak/"
+    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+        echo -e "\033[31mSkipping backup of tailscale due to --ignore-free-space flag ...\033[0m"
+    else
+        mkdir -p /root/tailscale.bak
+        cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
+        cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
+        echo "The backup of tailscale is located in /root/tailscale.bak/"
+    fi
 }
 
 get_latest_tailscale_version() {
@@ -86,9 +98,10 @@ get_latest_tailscale_version() {
     echo "Detecting latest tailscale version ..."
     if [ "$ARCH" = "aarch64" ]; then
         TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
-    fi
-    if [ "$ARCH" = "armv7l" ]; then
+    elif [ "$ARCH" = "armv7l" ]; then
         TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+    elif [ "$ARCH" = "mips" ]; then
+        TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
     fi
     if [ -z "$TAILSCALE_VERSION_NEW" ]; then
         echo -e "\033[31mx\033[0m ERROR: Could not get latest tailscale version. Please check your internet connection."
@@ -191,10 +204,12 @@ else
 fi
 if [ "$answer" != "${answer#[Yy]}" ]; then
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-        echo -e "\033[31m---\033[0m"
-        echo -e "\033[31mWARNING: --ignore-free-space is used. There will be no backup of your current version of tailscale!\033[0m"
-        echo -e "\033[31mYou might need to reset your router to factory settings if something goes wrong.\033[0m"
-        echo -e "\033[31m---\033[0m"
+        echo -e "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
+        echo -e "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m"
+        echo -e "\033[31m│ your router. Use it at your own risk.                                  │\033[0m"
+        echo -e "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m"
+        echo -e "\033[31m│ goes wrong.                                                            │\033[0m"
+        echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
         echo "Are you sure you want to continue? (y/N)"
         if [ "$FORCE" -eq 1 ]; then
             echo "--force flag is used. Continuing ..."
