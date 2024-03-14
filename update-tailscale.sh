@@ -33,7 +33,8 @@ preflight_check(){
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ P R E F L I G H T   C H E C K                                          │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4}')
+    AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
+    AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
     ARCH=$(uname -m)
     FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
     PREFLIGHT=0
@@ -52,20 +53,21 @@ preflight_check(){
     elif [ "$ARCH" = "mips" ]; then
         echo -e "\033[32m✓\033[0m Architecture: mips"
     else
-        echo -e "\033[31mx\033[0m ERROR: This script only works on arm64 and armv7."
+        echo -e "\033[31mx\033[0m ERROR: This script only works on arm64, armv7 and mips."
         PREFLIGHT=1
     fi
-    if [ "$AVAILABLE_SPACE" -lt 130000 ]; then
+    if [ "$AVAILABLE_SPACE" -lt 130 ]; then
         echo -e "\033[31mx\033[0m ERROR: Not enough space available. Please free up some space and try again."
-        echo "The script needs at least 130 MB of free space. Available space: $AVAILABLE_SPACE KB"
+        echo "The script needs at least 130 MB of free space. Available space: $AVAILABLE_SPACE MB"
         echo "If you want to continue, you can use --ignore-free-space to ignore this check."
         if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-            echo "--ignore-free-space flag is used. Ignoring free space check ..."
+            echo -e "\033[31mWARNING: --ignore-free-space flag is used. Continuing without enough space ...\033[0m"
+            echo -e "\033[31mCurrent available space: $AVAILABLE_SPACE MB\033[0m"
         else
             PREFLIGHT=1
         fi
     else
-        echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE KB"
+        echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE MB"
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         echo -e "\033[31mERROR: Prerequisites are not met. Exiting ...\033[0m"
@@ -80,7 +82,7 @@ backup() {
     echo "│ C R E A T I N G   B A C K U P   O F   T A I L S C A L E                │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-        echo -e "\033[31mSkipping backup!\033[0m"
+        echo -e "\033[31mSkipping backup of tailscale due to --ignore-free-space flag ...\033[0m"
     else
         mkdir -p /root/tailscale.bak
         cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
@@ -202,10 +204,12 @@ else
 fi
 if [ "$answer" != "${answer#[Yy]}" ]; then
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-        echo -e "\033[31m---\033[0m"
-        echo -e "\033[31mWARNING: --ignore-free-space is used. There will be no backup of your current version of tailscale!\033[0m"
-        echo -e "\033[31mYou might need to reset your router to factory settings if something goes wrong.\033[0m"
-        echo -e "\033[31m---\033[0m"
+        echo -e "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
+        echo -e "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m"
+        echo -e "\033[31m│ your router. Use it at your own risk.                                  │\033[0m"
+        echo -e "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m"
+        echo -e "\033[31m│ goes wrong.                                                            │\033[0m"
+        echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
         echo "Are you sure you want to continue? (y/N)"
         if [ "$FORCE" -eq 1 ]; then
             echo "--force flag is used. Continuing ..."

@@ -4,6 +4,11 @@ This script is designed to update Tailscale on GL.iNet routers.
 
 It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on the MT-6000 (Flint2) with firmware 4.5.4.
 
+## Requirements
+
+- GL.iNet router with firmware 4.x
+- Supported architecture: arm64, armv7, mips
+
 ## Usage
 
 Run the script with the following command:
@@ -20,7 +25,7 @@ wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/gline
 
 ## Force update
 
-By using the --force option, the script will skip all confirmation prompts. It will make the install permanent. This is useful for unattended installations. In combination with --ignore-free-space, it will also skip the free space check.
+By using the --force option, the script will skip all confirmation prompts. It will make the install permanent. This is useful for unattended installations. In combination with --ignore-free-space, it will also skip the free space check. Please use with caution!
 
 ## Running on devices with low free space
 
