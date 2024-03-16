@@ -8,11 +8,12 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
+# Contributor: lwbt
 # Updated: 2024-03-16
 # Date: 2024-01-24
-# Version: 1.0 BETA
+# Version: 1.1
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 
@@ -20,6 +21,7 @@
 invoke_intro() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ GL.iNet router script by Admon 🦭 for the GL.iNet community            │"
+    echo "| Thanks to lwbt for the UPX compression part.                           │"
     echo "├────────────────────────────────────────────────────────────────────────┤"
     echo "│ WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!               │"
     echo "│ It's only recommended to use this script if you know what you're doing.│"
@@ -27,7 +29,7 @@ invoke_intro() {
     echo "│ This script will update Tailscale on your router.                      │"
     echo "│                                                                        │"
     echo "│ Prerequisites:                                                         │"
-    echo "│ 1. At least 130 MB of free space.                                      │"
+    echo "│ 1. At least 50 MB of free space.                                       │"
     echo "│ 2. Firmware version 4 or higher.                                       │"
     echo "│ 3. Architecture arm64, armv7 or mips.                                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
@@ -60,9 +62,9 @@ preflight_check() {
         echo -e "\033[31mx\033[0m ERROR: This script only works on arm64, armv7 and mips."
         PREFLIGHT=1
     fi
-    if [ "$AVAILABLE_SPACE" -lt 130 ]; then
+    if [ "$AVAILABLE_SPACE" -lt 50 ]; then
         echo -e "\033[31mx\033[0m ERROR: Not enough space available. Please free up some space and try again."
-        echo "The script needs at least 130 MB of free space. Available space: $AVAILABLE_SPACE MB"
+        echo "The script needs at least 50 MB of free space. Available space: $AVAILABLE_SPACE MB"
         echo "If you want to continue, you can use --ignore-free-space to ignore this check."
         if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
             echo -e "\033[31mWARNING: --ignore-free-space flag is used. Continuing without enough space ...\033[0m"
@@ -72,6 +74,12 @@ preflight_check() {
         fi
     else
         echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE MB"
+    fi
+    # Check if xz is present
+    if ! command -v xz >/dev/null; then
+        echo -e "\033[33m!\033[0m xz is not installed. We can install it for you later."
+    else
+        echo -e "\033[32m✓\033[0m xz is installed."
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         echo -e "\033[31mERROR: Prerequisites are not met. Exiting ...\033[0m"
@@ -85,14 +93,11 @@ backup() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ C R E A T I N G   B A C K U P   O F   T A I L S C A L E                │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-        echo -e "\033[31mSkipping backup of tailscale due to --ignore-free-space flag ...\033[0m"
-    else
-        mkdir -p /root/tailscale.bak
-        cp /usr/sbin/tailscaled /root/tailscale.bak/tailscaled
-        cp /usr/sbin/tailscale /root/tailscale.bak/tailscale
-        echo "The backup of tailscale is located in /root/tailscale.bak/"
-    fi
+    echo "Creating backup of tailscale config ..."
+    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+    tar czf "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" /etc/config/tailscale
+    echo "Backup created: /root/tailscale_config_backup_$TIMESTAMP.tar.gz"
+    echo "The binaries will not be backed up, you can restore them by using the --restore flag."
 }
 
 get_latest_tailscale_version() {
@@ -114,17 +119,29 @@ get_latest_tailscale_version() {
     echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     echo "Downloading latest tailscale version ..."
     wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
-
-    echo "Do you want to compress the binaries with UPX to save space? (y/N)"
-    read -r answer_compress_binaries
-
-    # Extract tailscale
     mkdir /tmp/tailscale
-    if [ "$answer_compress_binaries" != "${answer_compress_binaries#[Yy]}" ]; then
-        echo "Extracting tailscale and compressing with UPX ..."
-        compress_binaries
+
+    # Ask if the user wants to compress the binaries with UPX to save space
+    echo "┌────────────────────────────────────────────────────────────────────────┐"
+    echo "│ C O M P R E S S   B I N A R I E S   W I T H   U P X                    │"
+    echo "└────────────────────────────────────────────────────────────────────────┘"
+    echo "Do you want to compress the binaries with UPX to save space? (y/N)"
+    if [ "$FORCE" -eq 1 ]; then
+        echo "--force flag is used. Continuing ..."
+        answer_compress_binaries="y"
     else
-        echo "Extracting tailscale ..."
+        read -r answer_compress_binaries
+    fi
+    # Extract tailscale
+
+    if [ "$answer_compress_binaries" != "${answer_compress_binaries#[Yy]}" ]; then
+        compress_binaries
+        if [ "$UPX_ERROR" -eq 1 ]; then
+            echo -e "\033[31mERROR: Could not compress tailscale with UPX. Continuing without compression ...\033[0m"
+            tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
+        fi
+    else
+        echo "Extracting tailscale without compression ..."
         tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
     fi
 
@@ -133,8 +150,9 @@ get_latest_tailscale_version() {
 }
 
 compress_binaries() {
-    echo "Ensuring xz-utils are present ..."
-    opkg install --verbosity=0 xz-utils
+    echo "Ensuring xz is present ..."
+    opkg update --verbosity=0
+    opkg install --verbosity=0 xz
 
     echo "Getting UPX ..."
     upx_version="$(
@@ -155,24 +173,41 @@ compress_binaries() {
     wget -qO "/tmp/upx.tar.xz" \
         "https://github.com/upx/upx/releases/download/v${upx_version}/upx-${upx_version}-${UPX_ARCH}_linux.tar.xz"
 
-    # Extract only the upx binary
-    unxz --decompress --stdout "/tmp/upx.tar.xz" \
-        | tar x -C "/tmp/" "upx-${upx_version}-${UPX_ARCH}_linux/upx"
-    mv "/tmp/upx-${upx_version}-${UPX_ARCH}_linux/upx" "/tmp/upx"
-    rmdir "/tmp/upx-${upx_version}-${UPX_ARCH}_linux"
-    rm "/tmp/upx.tar.xz"
-    # Keep it UPX binary in tmp?
-    #rm "/tmp/upx"
+    # If download fails, skip compression
+    if [ ! -f "/tmp/upx.tar.xz" ]; then
+        echo -e "\033[31mERROR: Could not download UPX. Skipping compression ...\033[0m"
+                echo "Extracting tailscale without compression ..."
+        UPX_ERROR=1
+    else
+        # Extract only the upx binary
+        unxz --decompress --stdout "/tmp/upx.tar.xz" \
+            | tar x -C "/tmp/" "upx-${upx_version}-${UPX_ARCH}_linux/upx"
+        mv "/tmp/upx-${upx_version}-${UPX_ARCH}_linux/upx" "/tmp/upx"
+        rmdir "/tmp/upx-${upx_version}-${UPX_ARCH}_linux"
+        rm "/tmp/upx.tar.xz"
+        # Check if the upx binary is present
+        if [ ! -f "/tmp/upx" ]; then
+            echo -e "\033[31mERROR: Could not find UPX binary. Skipping compression ...\033[0m"
+            UPX_ERROR=1
+        fi
 
-    tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscale" \
-        -C "/tmp/tailscale"
-    # Takes 55.14s on GL-AXT1800
-    /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscale"
+        tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscale" \
+            -C "/tmp/tailscale"
+        echo -e "\033[33mCompressing tailscale with UPX ...\033[0m"
+        echo -e "\033[33mThis might take 2-3 minutes, depending on your router.\033[0m"
+        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscale"
 
-    tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscaled" \
-        -C "/tmp/tailscale"
-    # Takes 107.92s on GL-AXT1800
-    /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscaled"
+        tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscaled" \
+            -C "/tmp/tailscale"
+        # Takes 107.92s on GL-AXT1800
+        echo -e "\033[33mCompressing tailscaled with UPX ...\033[0m"
+        echo -e "\033[33mThis might take 2-3 minutes, depending on your router.\033[0m"
+        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscaled"
+        # Clean up
+        if [ -f "/tmp/upx" ]; then
+            rm "/tmp/upx"
+        fi
+    fi
 }
 
 install_tailscale() {
@@ -206,7 +241,7 @@ upgrade_persistance() {
     echo "In worst case, you might need to remove the config from /etc/sysupgrade.conf"
     echo "Do you want to make the installation permanent? (y/N)"
     if [ "$FORCE" -eq 1 ]; then
-        echo "--force flag is used. Making installation permanent ..."
+        echo "--force flag is used. Continuing ..."
         answer_create_persistance="y"
     else
         read -r answer_create_persistance
@@ -214,6 +249,9 @@ upgrade_persistance() {
     if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
         echo "Making installation permanent ..."
         echo "Modifying /etc/sysupgrade.conf ..."
+        if ! grep -q "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
+            echo "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
+        fi
         if ! grep -q "/usr/sbin/tailscale" /etc/sysupgrade.conf; then
             echo "/usr/sbin/tailscale" >>/etc/sysupgrade.conf
         fi
@@ -229,6 +267,56 @@ upgrade_persistance() {
     fi
 }
 
+restore() {
+    echo -e "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
+    echo -e "\033[31m│R E S T O R I N G   T A I L S C A L E                                   │\033[0m"
+    echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
+    echo -e "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m"
+    echo -e "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m"
+    echo -e "\033[31mDo you want to restore tailscale? (y/N)\033[0m"
+    if [ "$FORCE" -eq 1 ]; then
+        echo "--force flag is used. Continuing ..."
+        answer_restore="y"
+    else
+        read -r answer_restore
+    fi
+    if [ "$answer_restore" != "${answer_restore#[Yy]}" ]; then
+        echo "Restoring tailscale ... Please wait ..."
+        /etc/init.d/tailscale stop 2>/dev/null
+        sleep 5
+        if [ -f "/usr/sbin/tailscale" ]; then
+            rm /usr/sbin/tailscale
+        fi
+        if [ -f "/usr/sbin/tailscaled" ]; then
+            rm /usr/sbin/tailscaled
+        fi
+        echo "Restoring tailscale binary from rom ..."
+        if [ -f "/rom/usr/sbin/tailscale" ]; then
+            cp /rom/usr/sbin/tailscale /usr/sbin/tailscale
+        else
+            echo -e "\033[31mERROR: tailscale binary not found in /rom. Exiting ...\033[0m"
+        fi
+        echo "Restoring tailscaled binary from rom ..."
+        if [ -f "/rom/usr/sbin/tailscaled" ]; then
+            cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
+        else
+            echo -e "\033[31mERROR: tailscaled binary not found in /rom. Exiting ...\033[0m"
+        fi
+        echo "Restarting tailscale ... Might or might not work ..."
+        /etc/init.d/tailscale start 2>/dev/null
+        # Remove from /etc/sysupgrade.conf
+        echo "Removing entries from /etc/sysupgrade.conf ..."
+        sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
+        sed -i '/\/usr\/sbin\/tailscaled/d' /etc/sysupgrade.conf
+        sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
+        sed -i "/\/root\/tailscale_config_backup_.*\.tar\.gz/d" /etc/sysupgrade.conf
+        echo "Tailscale restored to factory default."
+    else
+        echo "Ok, see you next time!"
+        exit 1
+    fi
+}
+
 invoke_outro() {
     echo -e "\033[32m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
     echo -e "\033[32m│ S C R I P T   F I N I S H E D   S U C C E S S F U L L Y                │\033[0m"
@@ -237,19 +325,32 @@ invoke_outro() {
     tailscale version
     tailscaled --version
 }
-# Main
+
 # Variables
 IGNORE_FREE_SPACE=0
 FORCE=0
+RESTORE=0
+UPX_ERROR=0
 # Read arguments
 for arg in "$@"; do
-    if [ "$arg" = "--ignore-free-space" ]; then
-        IGNORE_FREE_SPACE=1
-    fi
     if [ "$arg" = "--force" ]; then
         FORCE=1
     fi
+    if [ "$arg" = "--ignore-free-space" ]; then
+        IGNORE_FREE_SPACE=1
+    fi
+    if [ "$arg" = "--restore" ]; then
+        RESTORE=1
+    fi
 done
+
+# Main
+# Check if --restore flag is used, if yes, restore tailscale
+if [ "$RESTORE" -eq 1 ]; then
+    restore
+    exit 0
+fi
+
 invoke_intro
 preflight_check
 echo "Do you want to continue? (y/N)"

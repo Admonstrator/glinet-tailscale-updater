@@ -8,13 +8,15 @@ It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet co
 
 - GL.iNet router with firmware 4.x
 - Supported architecture: arm64, armv7, mips
+- Free space: at least 50 MB
+- xz installed if you want to use UPX compression, if it's not installed, the script will install it for you
 
 ## Usage
 
 Run the script with the following command:
 
 ```shell
-./update-tailscale.sh [--ignore-free-space] [--force]
+./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
 ```
 
 You can run it without cloning the repository by using the following command:
@@ -29,18 +31,27 @@ By using the --force option, the script will skip all confirmation prompts. It w
 
 ## Running on devices with low free space
 
-You can use --ignore-free-space to ignore the free space check. This is useful for devices with low free space.
+You can use --ignore-free-space to ignore the free space check. This is useful for devices with low free space. Please use with caution!
 
-In that case there will be no backup of the original files and the script will not check if there is enough free space to download the new files. Could potentially break your router if there is not enough free space.
+## UPX compression
+
+The script uses UPX to compress the tailscale binaries. You will be asked if you want to use UPX compression. It is recommended to use UPX compression, as it will reduce the size of the tailscale binaries. If you choose not to use UPX compression, the script will still work, but the tailscale binaries will be larger.
+
+## Restoring the original files
+
+You can use --restore to restore the original files. This will replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files coming from the firmware. It will not restore your configuration files and might lead to a broken installation. Please use with caution!
 
 ## Feedback
 
 Feel free to provide feedback in the [GL.iNet forum](https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582).
 
-## Reverting
+# Reverting
 
-To revert the changes, replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files.
-The original files can be found in the `/root/tailscale.bak` folder - they are named `tailscaled` and `tailscale`.
+If you want to revert to the original Tailscale installation, you can use the following commands:
+
+```shell
+sh update-tailscale.sh --restore
+```
 
 ## Disclaimer
 
@@ -49,3 +60,7 @@ This script is provided as is and without any warranty. Use it at your own risk.
 **It may break your router, your computer, your network or anything else. It may even burn down your house.**
 
 **You have been warned!**
+
+## Contributers
+
+Thanks to [lwbt](https://github.com/lwbt) for the UPX compression!
