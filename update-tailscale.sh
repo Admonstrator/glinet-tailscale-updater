@@ -1,10 +1,14 @@
 #!/bin/sh
+# shellcheck shell=dash
+# NOTE: 'echo $SHELL' reports '/bin/ash' on the routers, see:
+# - https://en.wikipedia.org/wiki/Almquist_shell#Embedded_Linux
+# - https://github.com/koalaman/shellcheck/issues/1841
 #
 #
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-# Updated: 2024-03-12
+# Updated: 2024-03-16
 # Date: 2024-01-24
 # Version: 1.0 BETA
 #
@@ -29,7 +33,7 @@ invoke_intro() {
     echo "└────────────────────────────────────────────────────────────────────────┘"
 }
 
-preflight_check(){
+preflight_check() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ P R E F L I G H T   C H E C K                                          │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
@@ -109,22 +113,75 @@ get_latest_tailscale_version() {
     fi
     echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     echo "Downloading latest tailscale version ..."
-    wget -qO /tmp/tailscale.tar.gz https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW
+    wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+
+    echo "Do you want to compress the binaries with UPX to save space? (y/N)"
+    read -r answer_compress_binaries
+
     # Extract tailscale
-    echo "Extracting tailscale ..."
     mkdir /tmp/tailscale
-    tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
+    if [ "$answer_compress_binaries" != "${answer_compress_binaries#[Yy]}" ]; then
+        echo "Extracting tailscale and compressing with UPX ..."
+        compress_binaries
+    else
+        echo "Extracting tailscale ..."
+        tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
+    fi
+
     # Removing archive
     rm /tmp/tailscale.tar.gz
 }
 
-install_tailscale(){
+compress_binaries() {
+    echo "Ensuring xz-utils are present ..."
+    opkg install --verbosity=0 xz-utils
+
+    echo "Getting UPX ..."
+    upx_version="$(
+        curl -s "https://api.github.com/repos/upx/upx/releases/latest" \
+            | grep 'tag_name' \
+            | cut -d : -f 2,3 \
+            | tr -d '"v, '
+    )"
+
+    if [ "$ARCH" = "aarch64" ]; then
+        UPX_ARCH="arm64"
+    elif [ "$ARCH" = "armv7l" ]; then
+        UPX_ARCH="arm"
+    elif [ "$ARCH" = "mips" ]; then
+        UPX_ARCH="$ARCH"
+    fi
+
+    wget -qO "/tmp/upx.tar.xz" \
+        "https://github.com/upx/upx/releases/download/v${upx_version}/upx-${upx_version}-${UPX_ARCH}_linux.tar.xz"
+
+    # Extract only the upx binary
+    unxz --decompress --stdout "/tmp/upx.tar.xz" \
+        | tar x -C "/tmp/" "upx-${upx_version}-${UPX_ARCH}_linux/upx"
+    mv "/tmp/upx-${upx_version}-${UPX_ARCH}_linux/upx" "/tmp/upx"
+    rmdir "/tmp/upx-${upx_version}-${UPX_ARCH}_linux"
+    rm "/tmp/upx.tar.xz"
+    # Keep it UPX binary in tmp?
+    #rm "/tmp/upx"
+
+    tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscale" \
+        -C "/tmp/tailscale"
+    # Takes 55.14s on GL-AXT1800
+    /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscale"
+
+    tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscaled" \
+        -C "/tmp/tailscale"
+    # Takes 107.92s on GL-AXT1800
+    /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscaled"
+}
+
+install_tailscale() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ I N S T A L L I N G   T A I L S C A L E                                │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
     # Stop tailscale
     echo "Stopping tailscale ..."
-    /etc/init.d/tailscale stop 2&>/dev/null
+    /etc/init.d/tailscale stop 2>/dev/null
     sleep 5
     # Moving tailscale to /usr/sbin
     echo "Moving tailscale to /usr/sbin ..."
@@ -135,10 +192,10 @@ install_tailscale(){
     rm -rf /tmp/tailscale
     # Restart tailscale
     echo "Restarting tailscale ..."
-    /etc/init.d/tailscale restart 2&>/dev/null
+    /etc/init.d/tailscale restart 2>/dev/null
 }
 
-upgrade_persistance(){
+upgrade_persistance() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ U P G R A D E   P E R S I S T A N C E                                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
@@ -152,7 +209,7 @@ upgrade_persistance(){
         echo "--force flag is used. Making installation permanent ..."
         answer_create_persistance="y"
     else
-        read answer_create_persistance
+        read -r answer_create_persistance
     fi
     if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
         echo "Making installation permanent ..."
@@ -200,7 +257,7 @@ if [ "$FORCE" -eq 1 ]; then
     echo "--force flag is used. Continuing ..."
     answer="y"
 else
-    read answer
+    read -r answer
 fi
 if [ "$answer" != "${answer#[Yy]}" ]; then
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
@@ -215,7 +272,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
             echo "--force flag is used. Continuing ..."
             answer="y"
         else
-            read answer
+            read -r answer
         fi
         if [ "$answer" != "${answer#[Yy]}" ]; then
             echo "Ok, continuing ..."
@@ -228,7 +285,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     backup
     install_tailscale
     upgrade_persistance
-    invoke_outro 
+    invoke_outro
     exit 0
 else
     echo "Ok, see you next time!"
