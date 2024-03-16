@@ -140,7 +140,7 @@ compress_binaries() {
     upx_version="$(
         curl -s "https://api.github.com/repos/upx/upx/releases/latest" \
             | grep 'tag_name' \
-            | cut -d : -f 2,3 \
+            | cut -d : -f 2 \
             | tr -d '"v, '
     )"
 
