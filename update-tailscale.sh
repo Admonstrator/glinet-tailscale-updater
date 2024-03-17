@@ -14,7 +14,7 @@
 SCRIPT_VERSION="2024.03.17.02"
 # ^ Update this version number when you make changes to the script
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--help]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
