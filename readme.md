@@ -21,6 +21,8 @@ The `update-tailscale.sh` script supports the following arguments:
 
 - `--restore`: Restores the original files (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`) from the firmware. Does not restore configuration files and may lead to a broken installation. Use with caution!
 
+- `--no-upx`: Skips the UPX compression. The tailscale binaries will be larger but the update will be faster.
+
 - `--help`: Displays the help message with information about the available arguments.
 
 ## Quick start

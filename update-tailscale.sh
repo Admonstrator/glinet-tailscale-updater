@@ -92,8 +92,11 @@ backup() {
     echo "└────────────────────────────────────────────────────────────────────────┘"
     echo "Creating backup of tailscale config ..."
     TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-    tar czf "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" -C "/" "etc/config/tailscale"
-    echo "Backup created: /root/tailscale_config_backup_$TIMESTAMP.tar.gz"
+    if [ ! -d "/root/tailscale_config_backup" ]; then
+        mkdir "/root/tailscale_config_backup"
+    fi
+    tar czf "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" -C "/" "etc/config/tailscale"
+    echo "Backup created: /root/tailscale_config_backup/$TIMESTAMP.tar.gz"
     echo "The binaries will not be backed up, you can restore them by using the --restore flag."
 }
 
@@ -116,18 +119,23 @@ get_latest_tailscale_version() {
     echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     echo "Downloading latest tailscale version ..."
     wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+    if [ -d "/tmp/tailscale" ]; then
+        rm -rf /tmp/tailscale
+    fi
     mkdir /tmp/tailscale
 
     # Ask if the user wants to compress the binaries with UPX to save space
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ C O M P R E S S   B I N A R I E S   W I T H   U P X                    │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    echo "Do you want to compress the binaries with UPX to save space? (y/N)"
-    if [ "$FORCE" -eq 1 ]; then
-        echo "--force flag is used. Continuing ..."
+    if [ "$NO_UPX" -eq 1 ]; then
+        echo "--no-upx flag is used. Skipping compression ..."
+        answer_compress_binaries="n"
+    elif [ "$FORCE" -eq 1 ]; then
+        echo "--force flag is used. Continuing with upx compression ..."
         answer_compress_binaries="y"
     else
-        read -r answer_compress_binaries
+        echo -e -n "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) " && read -r answer_compress_binaries
     fi
     # Extract tailscale
 
@@ -236,7 +244,7 @@ upgrade_persistance() {
     echo "Please note that this is not officially supported by GL.iNet."
     echo "It could lead to issues, even if not likely. Just keep that in mind."
     echo "In worst case, you might need to remove the config from /etc/sysupgrade.conf"
-    echo "Do you want to make the installation permanent? (y/N)"
+    echo -e "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)"
     if [ "$FORCE" -eq 1 ]; then
         echo "--force flag is used. Continuing ..."
         answer_create_persistance="y"
@@ -246,11 +254,11 @@ upgrade_persistance() {
     if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
         echo "Making installation permanent ..."
         echo "Modifying /etc/sysupgrade.conf ..."
-        if grep -q "/root/tailscale_config_backup_" /etc/sysupgrade.conf; then
-            sed -i "/\/root\/tailscale_config_backup_.*\.tar\.gz/d" /etc/sysupgrade.conf
+        if grep -q "/root/tailscale_config_backup/" /etc/sysupgrade.conf; then
+            sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
         fi
-        if ! grep -q "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
-            echo "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
+        if ! grep -q "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
+            echo "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
         fi
         if ! grep -q "/usr/sbin/tailscale" /etc/sysupgrade.conf; then
             echo "/usr/sbin/tailscale" >>/etc/sysupgrade.conf
@@ -273,7 +281,7 @@ restore() {
     echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
     echo -e "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m"
     echo -e "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m"
-    echo -e "\033[31mDo you want to restore tailscale? (y/N)\033[0m"
+    echo -e "> \033[36mDo you want to restore tailscale?\033[0m (y/N)"
     if [ "$FORCE" -eq 1 ]; then
         echo "--force flag is used. Continuing ..."
         answer_restore="y"
@@ -309,7 +317,7 @@ restore() {
         sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
         sed -i '/\/usr\/sbin\/tailscaled/d' /etc/sysupgrade.conf
         sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
-        sed -i "/\/root\/tailscale_config_backup_.*\.tar\.gz/d" /etc/sysupgrade.conf
+        sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
         echo "Tailscale restored to factory default."
     else
         echo "Ok, see you next time!"
@@ -327,20 +335,21 @@ invoke_outro() {
 }
 
 invoke_help() {
-    echo "Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]"
-    echo "Options:"
-    echo "  --ignore-free-space  Ignore free space check"
-    echo "  --force              Do not ask for confirmation"
-    echo "  --restore            Restore tailscale to factory default"
-    echo "  --help               Show this help"
-}	
-
+    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93m--ignore-free-space\033[0m] [\033[93m--force\033[0m] [\033[93m--restore\033[0m] [\033[93m--no-upx\033[0m] [\033[93m--help\033[0m]"
+    echo -e "\033[1mOptions:\033[0m"
+    echo -e "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m"
+    echo -e "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m"
+    echo -e "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m"
+    echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
+    echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
+}
 
 # Variables
 IGNORE_FREE_SPACE=0
 FORCE=0
 RESTORE=0
 UPX_ERROR=0
+NO_UPX=0
 # Read arguments
 for arg in "$@"; do
     if [ "$arg" = "--help" ]; then
@@ -356,8 +365,11 @@ for arg in "$@"; do
     if [ "$arg" = "--restore" ]; then
         RESTORE=1
     fi
+    if [ "$arg" = "--no-upx" ]; then
+        NO_UPX=1
+    fi
     # If unknown argument is passed, show help
-    if [ "$arg" != "--force" ] && [ "$arg" != "--ignore-free-space" ] && [ "$arg" != "--restore" ]; then
+    if [ "$arg" != "--force" ] && [ "$arg" != "--ignore-free-space" ] && [ "$arg" != "--restore" ] && [ "$arg" != "--no-upx" ] && [ "$arg" != "--help" ]; then
         echo "Unknown argument: $arg"
         invoke_help
         exit 1
@@ -373,7 +385,7 @@ fi
 
 invoke_intro
 preflight_check
-echo "Do you want to continue? (y/N)"
+echo -e "> \033[36mDo you want to continue?\033[0m (y/N)"
 if [ "$FORCE" -eq 1 ]; then
     echo "--force flag is used. Continuing ..."
     answer="y"
@@ -388,7 +400,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
         echo -e "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m"
         echo -e "\033[31m│ goes wrong.                                                            │\033[0m"
         echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
-        echo "Are you sure you want to continue? (y/N)"
+        echo -e "> \033[36mDo you want to continue?\033[0m (y/N)"
         if [ "$FORCE" -eq 1 ]; then
             echo "--force flag is used. Continuing ..."
             answer="y"
