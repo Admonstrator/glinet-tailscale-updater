@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-03-17
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.03.17.02"
+SCRIPT_VERSION="2024.03.17.03"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--help]
