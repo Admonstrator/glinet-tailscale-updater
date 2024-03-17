@@ -28,7 +28,7 @@ NO_UPX=0
 invoke_intro() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ GL.iNet router script by Admon 🦭 for the GL.iNet community            │"
-    echo "| Version 2024.03.17.01                                                  │"
+    echo "| Version: $SCRIPT_VERSION                                                 |"
     echo "├────────────────────────────────────────────────────────────────────────┤"
     echo "│ WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!               │"
     echo "│ It's only recommended to use this script if you know what you're doing.│"
