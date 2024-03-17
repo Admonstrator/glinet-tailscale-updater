@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-03-17
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.03.17.04"
+SCRIPT_VERSION="2024.03.17.05"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--help]
@@ -407,7 +407,7 @@ if [ "$RESTORE" -eq 1 ]; then
 fi
 
 # Check if the script is up to date
-invoke_update
+invoke_update "$@"
 # Start the script
 invoke_intro
 preflight_check
