@@ -11,11 +11,18 @@
 # Contributor: lwbt
 # Updated: 2024-03-17
 # Date: 2024-01-24
-# Version: 2024.03.17.01
+SCRIPT_VERSION="2024.03.17.02"
+# ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
+# Variables
+IGNORE_FREE_SPACE=0
+FORCE=0
+RESTORE=0
+UPX_ERROR=0
+NO_UPX=0
 
 # Functions
 invoke_intro() {
@@ -344,36 +351,52 @@ invoke_help() {
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
-# Variables
-IGNORE_FREE_SPACE=0
-FORCE=0
-RESTORE=0
-UPX_ERROR=0
-NO_UPX=0
+invoke_update() {
+    SCRIPT_VERSION_NEW=$(curl -s "https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh" | grep -o 'SCRIPT_VERSION="[0-9]*-[0-9]*-[0-9]*-[0-9]*"' | cut -d " " -f 2 || echo "Failed to retrieve script version")
+    if [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
+        echo -e "\033[33mA new version of this script is available: $SCRIPT_VERSION_NEW\033[0m"
+        echo -e "\033[33mThe script will now be updated ...\033[0m"
+        wget -qO /tmp/update-tailscale.sh "https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh"
+        # Get current script path
+        SCRIPT_PATH=$(readlink -f "$0")
+        # Replace current script with updated script
+        rm "$SCRIPT_PATH"
+        mv /tmp/update-tailscale.sh "$SCRIPT_PATH"
+        chmod +x "$SCRIPT_PATH"
+        echo -e "\033[32mThe script has been updated successfully. It will restart in 3 seconds ...\033[0m"
+        sleep 3
+        exec "$SCRIPT_PATH" "$@"
+    else
+        echo -e "\033[32mYou are using the latest version of this script!\033[0m"
+    fi
+}
+
+
 # Read arguments
 for arg in "$@"; do
-    if [ "$arg" = "--help" ]; then
-        invoke_help
-        exit 0
-    fi
-    if [ "$arg" = "--force" ]; then
-        FORCE=1
-    fi
-    if [ "$arg" = "--ignore-free-space" ]; then
-        IGNORE_FREE_SPACE=1
-    fi
-    if [ "$arg" = "--restore" ]; then
-        RESTORE=1
-    fi
-    if [ "$arg" = "--no-upx" ]; then
-        NO_UPX=1
-    fi
-    # If unknown argument is passed, show help
-    if [ "$arg" != "--force" ] && [ "$arg" != "--ignore-free-space" ] && [ "$arg" != "--restore" ] && [ "$arg" != "--no-upx" ] && [ "$arg" != "--help" ]; then
-        echo "Unknown argument: $arg"
-        invoke_help
-        exit 1
-    fi
+    case $arg in
+        --help)
+            invoke_help
+            exit 0
+            ;;
+        --force)
+            FORCE=1
+            ;;
+        --ignore-free-space)
+            IGNORE_FREE_SPACE=1
+            ;;
+        --restore)
+            RESTORE=1
+            ;;
+        --no-upx)
+            NO_UPX=1
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            invoke_help
+            exit 1
+            ;;
+    esac
 done
 
 # Main
@@ -383,6 +406,9 @@ if [ "$RESTORE" -eq 1 ]; then
     exit 0
 fi
 
+# Check if the script is up to date
+invoke_update
+# Start the script
 invoke_intro
 preflight_check
 echo -e "> \033[36mDo you want to continue?\033[0m (y/N)"
