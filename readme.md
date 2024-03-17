@@ -11,19 +11,27 @@ It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet co
 - Free space: at least 50 MB
 - xz installed if you want to use UPX compression, if it's not installed, the script will install it for you
 
-## Usage
+## Arguments
 
-Run the script with the following command:
+The `update-tailscale.sh` script supports the following arguments:
 
-```shell
-./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
-```
+- `--ignore-free-space`: Ignores the free space check. Useful for devices with low free space. Use with caution!
+
+- `--force`: Skips all confirmation prompts and makes the install permanent. Useful for unattended installations. Use with caution!
+
+- `--restore`: Restores the original files (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`) from the firmware. Does not restore configuration files and may lead to a broken installation. Use with caution!
+
+- `--help`: Displays the help message with information about the available arguments.
+
+## Quick start
 
 You can run it without cloning the repository by using the following command:
 
 ```shell
 wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh && sh update-tailscale.sh
 ```
+
+**Please do not run this script as a cron job! It is recommended to run it manually!**
 
 ## Force update
 
@@ -39,19 +47,11 @@ The script uses UPX to compress the tailscale binaries. You will be asked if you
 
 ## Restoring the original files
 
-You can use --restore to restore the original files. This will replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files coming from the firmware. It will not restore your configuration files and might lead to a broken installation. Please use with caution!
+You can use `--restore` to restore the original files. This will replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files coming from the firmware. It will not restore your configuration files and might lead to a broken installation. Please use with caution!
 
 ## Feedback
 
 Feel free to provide feedback in the [GL.iNet forum](https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582).
-
-# Reverting
-
-If you want to revert to the original Tailscale installation, you can use the following commands:
-
-```shell
-sh update-tailscale.sh --restore
-```
 
 ## Disclaimer
 

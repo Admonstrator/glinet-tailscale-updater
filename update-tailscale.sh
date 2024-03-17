@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-03-16
 # Date: 2024-01-24
-# Version: 1.1
+# Version: 2024.03.17.01
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]
 # Warning: This script might potentially harm your router. Use it at your own risk.
@@ -21,7 +21,7 @@
 invoke_intro() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ GL.iNet router script by Admon 🦭 for the GL.iNet community            │"
-    echo "| Thanks to lwbt for the UPX compression part.                           │"
+    echo "| Version 2024.03.17.01                                                  │"
     echo "├────────────────────────────────────────────────────────────────────────┤"
     echo "│ WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!               │"
     echo "│ It's only recommended to use this script if you know what you're doing.│"
@@ -36,9 +36,6 @@ invoke_intro() {
 }
 
 preflight_check() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ P R E F L I G H T   C H E C K                                          │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
     AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
     AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
     ARCH=$(uname -m)
@@ -95,7 +92,7 @@ backup() {
     echo "└────────────────────────────────────────────────────────────────────────┘"
     echo "Creating backup of tailscale config ..."
     TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-    tar czf "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" /etc/config/tailscale
+    tar czf "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" -C "/" "etc/config/tailscale"
     echo "Backup created: /root/tailscale_config_backup_$TIMESTAMP.tar.gz"
     echo "The binaries will not be backed up, you can restore them by using the --restore flag."
 }
@@ -249,6 +246,9 @@ upgrade_persistance() {
     if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
         echo "Making installation permanent ..."
         echo "Modifying /etc/sysupgrade.conf ..."
+        if grep -q "/root/tailscale_config_backup_" /etc/sysupgrade.conf; then
+            sed -i "/\/root\/tailscale_config_backup_.*\.tar\.gz/d" /etc/sysupgrade.conf
+        fi
         if ! grep -q "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
             echo "/root/tailscale_config_backup_$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
         fi
@@ -326,6 +326,16 @@ invoke_outro() {
     tailscaled --version
 }
 
+invoke_help() {
+    echo "Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore]"
+    echo "Options:"
+    echo "  --ignore-free-space  Ignore free space check"
+    echo "  --force              Do not ask for confirmation"
+    echo "  --restore            Restore tailscale to factory default"
+    echo "  --help               Show this help"
+}	
+
+
 # Variables
 IGNORE_FREE_SPACE=0
 FORCE=0
@@ -333,6 +343,10 @@ RESTORE=0
 UPX_ERROR=0
 # Read arguments
 for arg in "$@"; do
+    if [ "$arg" = "--help" ]; then
+        invoke_help
+        exit 0
+    fi
     if [ "$arg" = "--force" ]; then
         FORCE=1
     fi
@@ -341,6 +355,12 @@ for arg in "$@"; do
     fi
     if [ "$arg" = "--restore" ]; then
         RESTORE=1
+    fi
+    # If unknown argument is passed, show help
+    if [ "$arg" != "--force" ] && [ "$arg" != "--ignore-free-space" ] && [ "$arg" != "--restore" ]; then
+        echo "Unknown argument: $arg"
+        invoke_help
+        exit 1
     fi
 done
 
