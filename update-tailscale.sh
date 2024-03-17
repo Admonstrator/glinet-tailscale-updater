@@ -9,7 +9,7 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Updated: 2024-03-16
+# Updated: 2024-03-17
 # Date: 2024-01-24
 # Version: 2024.03.17.01
 #
