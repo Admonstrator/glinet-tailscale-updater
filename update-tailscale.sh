@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-03-17
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.03.17.05"
+SCRIPT_VERSION="2024.04.27.01"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--help]
@@ -126,6 +126,11 @@ get_latest_tailscale_version() {
     echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     echo "Downloading latest tailscale version ..."
     wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+    # Check if download was successful
+    if [ ! -f "/tmp/tailscale.tar.gz" ]; then
+        echo -e "\033[31mERROR: Could not download tailscale. Exiting ...\033[0m"
+        exit 1
+    fi
     if [ -d "/tmp/tailscale" ]; then
         rm -rf /tmp/tailscale
     fi
@@ -232,6 +237,15 @@ install_tailscale() {
     sleep 5
     # Moving tailscale to /usr/sbin
     echo "Moving tailscale to /usr/sbin ..."
+    # Check if tailscale binary is present
+    if [ ! -f "/tmp/tailscale/"*"/tailscale" ]; then
+        echo -e "\033[31mERROR: Tailscale binary not found. Exiting ...\033[0m"
+        exit 1
+    fi
+    if [ ! -f "/tmp/tailscale/"*"/tailscaled" ]; then
+        echo -e "\033[31mERROR: Tailscaled binary not found. Exiting ...\033[0m"
+        exit 1
+    fi
     mv /tmp/tailscale/*/tailscale /usr/sbin/tailscale
     mv /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled
     # Remove temporary files
