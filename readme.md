@@ -23,6 +23,8 @@ The `update-tailscale.sh` script supports the following arguments:
 
 - `--no-upx`: Skips the UPX compression. The tailscale binaries will be larger but the update will be faster.
 
+- `--no-download`: Skips the download of the tailscale binaries. Useful if you have already downloaded the binaries and want to use them. Store the archive as `/tmp/tailscale.tar.gz`.
+
 - `--help`: Displays the help message with information about the available arguments.
 
 ## Quick start

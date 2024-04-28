@@ -11,10 +11,10 @@
 # Contributor: lwbt
 # Updated: 2024-03-17
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.04.27.01"
+SCRIPT_VERSION="2024.04.28.01"
 # ^ Update this version number when you make changes to the script
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--help]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
@@ -23,6 +23,7 @@ FORCE=0
 RESTORE=0
 UPX_ERROR=0
 NO_UPX=0
+NO_DOWNLOAD=0
 
 # Functions
 invoke_intro() {
@@ -111,30 +112,37 @@ get_latest_tailscale_version() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
     echo "│ G E T T I N G   N E W E S T   T A I L S C A L E   V E R S I O N        │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
-    echo "Detecting latest tailscale version ..."
-    if [ "$ARCH" = "aarch64" ]; then
-        TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
-    elif [ "$ARCH" = "armv7l" ]; then
-        TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
-    elif [ "$ARCH" = "mips" ]; then
-        TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
-    fi
-    if [ -z "$TAILSCALE_VERSION_NEW" ]; then
-        echo -e "\033[31mx\033[0m ERROR: Could not get latest tailscale version. Please check your internet connection."
-        exit 1
-    fi
-    echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
-    echo "Downloading latest tailscale version ..."
-    wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
-    # Check if download was successful
-    if [ ! -f "/tmp/tailscale.tar.gz" ]; then
-        echo -e "\033[31mERROR: Could not download tailscale. Exiting ...\033[0m"
-        exit 1
-    fi
     if [ -d "/tmp/tailscale" ]; then
         rm -rf /tmp/tailscale
     fi
     mkdir /tmp/tailscale
+    if [ "$NO_DOWNLOAD" -eq 1 ]; then
+        echo "--no-download flag is used. Skipping download of tailscale ..."
+        echo "Please download the tailscale archive manually and place it in /tmp/tailscale.tar.gz"
+        TAILSCALE_VERSION_NEW="manually"
+    else
+        echo "Detecting latest tailscale version ..."
+        if [ "$ARCH" = "aarch64" ]; then
+            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
+        elif [ "$ARCH" = "armv7l" ]; then
+            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+        elif [ "$ARCH" = "mips" ]; then
+            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+        fi
+        if [ -z "$TAILSCALE_VERSION_NEW" ]; then
+            echo -e "\033[31mx\033[0m ERROR: Could not get latest tailscale version. Please check your internet connection."
+            exit 1
+        fi
+        echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
+        echo "Downloading latest tailscale version ..."
+        wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+        # Check if download was successful
+    fi
+    if [ ! -f "/tmp/tailscale.tar.gz" ]; then
+        echo -e "\033[31mERROR: Could not download tailscale. Exiting ...\033[0m"
+        echo -e "\033[31mFile not found: /tmp/tailscale.tar.gz\033[0m"
+        exit 1
+    fi
 
     # Ask if the user wants to compress the binaries with UPX to save space
     echo "┌────────────────────────────────────────────────────────────────────────┐"
@@ -208,13 +216,13 @@ compress_binaries() {
             UPX_ERROR=1
         fi
 
-        tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscale" \
+        tar xzf "/tmp/tailscale.tar.gz" "*/tailscale" \
             -C "/tmp/tailscale"
         echo -e "\033[33mCompressing tailscale with UPX ...\033[0m"
         echo -e "\033[33mThis might take 2-3 minutes, depending on your router.\033[0m"
         /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscale"
 
-        tar xzf "/tmp/tailscale.tar.gz" "${TAILSCALE_VERSION_NEW%.tgz}/tailscaled" \
+        tar xzf "/tmp/tailscale.tar.gz" "*/tailscaled" \
             -C "/tmp/tailscale"
         # Takes 107.92s on GL-AXT1800
         echo -e "\033[33mCompressing tailscaled with UPX ...\033[0m"
@@ -362,6 +370,7 @@ invoke_help() {
     echo -e "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m"
     echo -e "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m"
     echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
+    echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
@@ -404,6 +413,9 @@ for arg in "$@"; do
             ;;
         --no-upx)
             NO_UPX=1
+            ;;
+        --no-download)
+            NO_DOWNLOAD=1
             ;;
         *)
             echo "Unknown argument: $arg"
