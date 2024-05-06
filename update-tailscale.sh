@@ -9,9 +9,9 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Updated: 2024-03-17
+# Updated: 2024-06-05
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.04.28.01"
+SCRIPT_VERSION="2024.05.06.01"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
@@ -24,6 +24,10 @@ RESTORE=0
 UPX_ERROR=0
 NO_UPX=0
 NO_DOWNLOAD=0
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+INFO='\033[0m' # No Color
 
 # Functions
 invoke_intro() {
@@ -50,78 +54,72 @@ preflight_check() {
     FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
     PREFLIGHT=0
 
-    echo "Checking if prerequisites are met ..."
+    log "INFO" "Checking if prerequisites are met"
     if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
-        echo -e "\033[31mx\033[0m ERROR: This script only works on firmware version 4 or higher."
+        log "ERROR" "This script only works on firmware version 4 or higher."
         PREFLIGHT=1
     else
-        echo -e "\033[32m✓\033[0m Firmware version: $FIRMWARE_VERSION"
+        log "SUCCESS" "Firmware version: $FIRMWARE_VERSION"
     fi
     if [ "$ARCH" = "aarch64" ]; then
-        echo -e "\033[32m✓\033[0m Architecture: arm64"
+        log "SUCCESS" "Architecture: arm64"
     elif [ "$ARCH" = "armv7l" ]; then
-        echo -e "\033[32m✓\033[0m Architecture: armv7"
+        log "SUCCESS" "Architecture: armv7"
     elif [ "$ARCH" = "mips" ]; then
-        echo -e "\033[32m✓\033[0m Architecture: mips"
+        log "SUCCESS" "Architecture: mips"
     else
-        echo -e "\033[31mx\033[0m ERROR: This script only works on arm64, armv7 and mips."
+        log "ERROR" "This script only works on arm64, armv7 and mips."
         PREFLIGHT=1
     fi
     if [ "$AVAILABLE_SPACE" -lt 50 ]; then
-        echo -e "\033[31mx\033[0m ERROR: Not enough space available. Please free up some space and try again."
-        echo "The script needs at least 50 MB of free space. Available space: $AVAILABLE_SPACE MB"
-        echo "If you want to continue, you can use --ignore-free-space to ignore this check."
+        log "ERROR" "Not enough space available. Please free up some space and try again."
+        log "ERROR" "The script needs at least 50 MB of free space. Available space: $AVAILABLE_SPACE MB"
+        log "ERROR" "If you want to continue, you can use --ignore-free-space to ignore this check."
         if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-            echo -e "\033[31mWARNING: --ignore-free-space flag is used. Continuing without enough space ...\033[0m"
-            echo -e "\033[31mCurrent available space: $AVAILABLE_SPACE MB\033[0m"
+            log "WARNING" "--ignore-free-space flag is used. Continuing without enough space"
+             log "WARNING" "Current available space: $AVAILABLE_SPACE MB"
         else
             PREFLIGHT=1
         fi
     else
-        echo -e "\033[32m✓\033[0m Available space: $AVAILABLE_SPACE MB"
+        log "SUCCESS" "Available space: $AVAILABLE_SPACE MB"
     fi
     # Check if xz is present
     if ! command -v xz >/dev/null; then
-        echo -e "\033[33m!\033[0m xz is not installed. We can install it for you later."
+        log "WARNING" "xz is not installed. We can install it for you later."
     else
-        echo -e "\033[32m✓\033[0m xz is installed."
+        log "SUCCESS" "xz is installed."
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
-        echo -e "\033[31mERROR: Prerequisites are not met. Exiting ...\033[0m"
+        log "ERROR" "Prerequisites are not met. Exiting"
         exit 1
     else
-        echo -e "\033[32m✓\033[0m Prerequisites are met."
+        log "SUCCESS" "Prerequisites are met."
     fi
 }
 
 backup() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ C R E A T I N G   B A C K U P   O F   T A I L S C A L E                │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
-    echo "Creating backup of tailscale config ..."
+    log "INFO" "Creating backup of tailscale config"
     TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
     if [ ! -d "/root/tailscale_config_backup" ]; then
         mkdir "/root/tailscale_config_backup"
     fi
     tar czf "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" -C "/" "etc/config/tailscale"
-    echo "Backup created: /root/tailscale_config_backup/$TIMESTAMP.tar.gz"
-    echo "The binaries will not be backed up, you can restore them by using the --restore flag."
+    log "SUCCESS" "Backup created: /root/tailscale_config_backup/$TIMESTAMP.tar.gz"
+    log "INFO" "The binaries will not be backed up, you can restore them by using the --restore flag."
 }
 
 get_latest_tailscale_version() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ G E T T I N G   N E W E S T   T A I L S C A L E   V E R S I O N        │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
     if [ -d "/tmp/tailscale" ]; then
         rm -rf /tmp/tailscale
     fi
     mkdir /tmp/tailscale
     if [ "$NO_DOWNLOAD" -eq 1 ]; then
-        echo "--no-download flag is used. Skipping download of tailscale ..."
-        echo "Please download the tailscale archive manually and place it in /tmp/tailscale.tar.gz"
+        log "INFO" "--no-download flag is used. Skipping download of tailscale"
+        log "INFO" "Please download the tailscale archive manually and place it in /tmp/tailscale.tar.gz"
         TAILSCALE_VERSION_NEW="manually"
     else
-        echo "Detecting latest tailscale version ..."
+        log "INFO" "Detecting latest tailscale version"
         if [ "$ARCH" = "aarch64" ]; then
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
         elif [ "$ARCH" = "armv7l" ]; then
@@ -130,29 +128,34 @@ get_latest_tailscale_version() {
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
         fi
         if [ -z "$TAILSCALE_VERSION_NEW" ]; then
-            echo -e "\033[31mx\033[0m ERROR: Could not get latest tailscale version. Please check your internet connection."
+            log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
             exit 1
         fi
-        echo "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
-        echo "Downloading latest tailscale version ..."
+        log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
+        log "INFO" "Downloading latest tailscale version"
         wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
         # Check if download was successful
     fi
     if [ ! -f "/tmp/tailscale.tar.gz" ]; then
-        echo -e "\033[31mERROR: Could not download tailscale. Exiting ...\033[0m"
-        echo -e "\033[31mFile not found: /tmp/tailscale.tar.gz\033[0m"
+        log "ERROR" "Could not download tailscale. Exiting"
+        log "ERROR" "File not found: /tmp/tailscale.tar.gz"
         exit 1
     fi
 
+     log "INFO" "Finding tailscale binaries in archive"
+    TAILSCALE_SUBDIR_IN_TAR=$(tar tzf /tmp/tailscale.tar.gz | grep /$ | head -n 1)
+    TAILSCALE_SUBDIR_IN_TAR=${TAILSCALE_SUBDIR_IN_TAR%/}
+    if [ -z "$TAILSCALE_SUBDIR_IN_TAR" ]; then
+        log "ERROR" "Could not find tailscale binaries in archive. Exiting"
+        exit 1
+    fi
+    log "SUCCESS" "Found tailscale binaries in: $TAILSCALE_SUBDIR_IN_TAR"
     # Ask if the user wants to compress the binaries with UPX to save space
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ C O M P R E S S   B I N A R I E S   W I T H   U P X                    │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
     if [ "$NO_UPX" -eq 1 ]; then
-        echo "--no-upx flag is used. Skipping compression ..."
+        log "WARNING" "--no-upx flag is used. Skipping compression"
         answer_compress_binaries="n"
     elif [ "$FORCE" -eq 1 ]; then
-        echo "--force flag is used. Continuing with upx compression ..."
+        log "WARNING" "--force flag is used. Continuing with upx compression"
         answer_compress_binaries="y"
     else
         echo -e -n "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) " && read -r answer_compress_binaries
@@ -162,11 +165,11 @@ get_latest_tailscale_version() {
     if [ "$answer_compress_binaries" != "${answer_compress_binaries#[Yy]}" ]; then
         compress_binaries
         if [ "$UPX_ERROR" -eq 1 ]; then
-            echo -e "\033[31mERROR: Could not compress tailscale with UPX. Continuing without compression ...\033[0m"
+            log "ERROR" "Could not compress tailscale with UPX. Continuing without compression"
             tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
         fi
     else
-        echo "Extracting tailscale without compression ..."
+        log "INFO" "Extracting tailscale without compression"
         tar xzf /tmp/tailscale.tar.gz -C /tmp/tailscale
     fi
 
@@ -175,11 +178,17 @@ get_latest_tailscale_version() {
 }
 
 compress_binaries() {
-    echo "Ensuring xz is present ..."
+    log "INFO" "Ensuring xz is present and installing if necessary"
     opkg update --verbosity=0
     opkg install --verbosity=0 xz
-
-    echo "Getting UPX ..."
+    if command -v xz >/dev/null; then
+        log "SUCCESS" "xz is installed."
+    else
+        log "ERROR" "xz is not installed. Skipping compression"
+        UPX_ERROR=1
+        return 1
+    fi
+    log "INFO" "Getting UPX"
     upx_version="$(
         curl -s "https://api.github.com/repos/upx/upx/releases/latest" \
             | grep 'tag_name' \
@@ -200,8 +209,8 @@ compress_binaries() {
 
     # If download fails, skip compression
     if [ ! -f "/tmp/upx.tar.xz" ]; then
-        echo -e "\033[31mERROR: Could not download UPX. Skipping compression ...\033[0m"
-                echo "Extracting tailscale without compression ..."
+        log "ERROR" "Could not download UPX. Skipping compression"
+        log "WARNING" "Extracting tailscale without compression"
         UPX_ERROR=1
     else
         # Extract only the upx binary
@@ -212,22 +221,21 @@ compress_binaries() {
         rm "/tmp/upx.tar.xz"
         # Check if the upx binary is present
         if [ ! -f "/tmp/upx" ]; then
-            echo -e "\033[31mERROR: Could not find UPX binary. Skipping compression ...\033[0m"
+            log "ERROR" "Could not find UPX binary. Skipping compression"
             UPX_ERROR=1
         fi
-
-        tar xzf "/tmp/tailscale.tar.gz" "*/tailscale" \
+        tar xzf "/tmp/tailscale.tar.gz" "$TAILSCALE_SUBDIR_IN_TAR/tailscale" \
             -C "/tmp/tailscale"
-        echo -e "\033[33mCompressing tailscale with UPX ...\033[0m"
-        echo -e "\033[33mThis might take 2-3 minutes, depending on your router.\033[0m"
-        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscale"
+        log "INFO" "Compressing tailscale with UPX"
+        log "INFO" "This might take 2-3 minutes, depending on your router."
+        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscale"
 
-        tar xzf "/tmp/tailscale.tar.gz" "*/tailscaled" \
+        tar xzf "/tmp/tailscale.tar.gz" "$TAILSCALE_SUBDIR_IN_TAR/tailscaled" \
             -C "/tmp/tailscale"
         # Takes 107.92s on GL-AXT1800
-        echo -e "\033[33mCompressing tailscaled with UPX ...\033[0m"
-        echo -e "\033[33mThis might take 2-3 minutes, depending on your router.\033[0m"
-        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/"*"/tailscaled"
+        log "INFO" "Compressing tailscaled with UPX"
+        log "INFO" "This might take 2-3 minutes, depending on your router."
+        /usr/bin/time -f %e /tmp/upx --lzma "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled"
         # Clean up
         if [ -f "/tmp/upx" ]; then
             rm "/tmp/upx"
@@ -236,53 +244,49 @@ compress_binaries() {
 }
 
 install_tailscale() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ I N S T A L L I N G   T A I L S C A L E                                │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
     # Stop tailscale
-    echo "Stopping tailscale ..."
+    log "INFO" "Stopping tailscale"
     /etc/init.d/tailscale stop 2>/dev/null
     sleep 5
     # Moving tailscale to /usr/sbin
-    echo "Moving tailscale to /usr/sbin ..."
+    log "INFO" "Moving tailscale to /usr/sbin"
     # Check if tailscale binary is present
-    if [ ! -f "/tmp/tailscale/"*"/tailscale" ]; then
-        echo -e "\033[31mERROR: Tailscale binary not found. Exiting ...\033[0m"
+    if [ ! -f "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscale" ]; then
+        log "ERROR" "Tailscale binary not found. Exiting"
         exit 1
     fi
-    if [ ! -f "/tmp/tailscale/"*"/tailscaled" ]; then
-        echo -e "\033[31mERROR: Tailscaled binary not found. Exiting ...\033[0m"
+    if [ ! -f "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled" ]; then
+        log "ERROR" "Tailscaled binary not found. Exiting"
         exit 1
     fi
-    mv /tmp/tailscale/*/tailscale /usr/sbin/tailscale
-    mv /tmp/tailscale/*/tailscaled /usr/sbin/tailscaled
+    mv /tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscale /usr/sbin/tailscale
+    mv /tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled /usr/sbin/tailscaled
     # Remove temporary files
-    echo "Removing temporary files ..."
+    log "INFO" "Removing temporary files"
     rm -rf /tmp/tailscale
     # Restart tailscale
-    echo "Restarting tailscale ..."
+    log "INFO" "Restarting tailscale"
     /etc/init.d/tailscale restart 2>/dev/null
 }
 
 upgrade_persistance() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ U P G R A D E   P E R S I S T A N C E                                  │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
-    echo "The update was successful. Do you want to make the installation permanent?"
-    echo "This will make your tailscale installation persistent over firmware upgrades."
-    echo "Please note that this is not officially supported by GL.iNet."
-    echo "It could lead to issues, even if not likely. Just keep that in mind."
-    echo "In worst case, you might need to remove the config from /etc/sysupgrade.conf"
+    echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+    echo "| The update was successful. Do you want to make the installation permanent?     |"
+    echo "| This will make your tailscale installation persistent over firmware upgrades.  |"
+    echo "| Please note that this is not officially supported by GL.iNet.                  |"
+    echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
+    echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
+    echo "└────────────────────────────────────────────────────────────────────────────────┘"
     echo -e "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)"
     if [ "$FORCE" -eq 1 ]; then
-        echo "--force flag is used. Continuing ..."
+        log "WARNING" "--force flag is used. Continuing"
         answer_create_persistance="y"
     else
         read -r answer_create_persistance
     fi
     if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
-        echo "Making installation permanent ..."
-        echo "Modifying /etc/sysupgrade.conf ..."
+        log "INFO" "Making installation permanent"
+        log "INFO" "Modifying /etc/sysupgrade.conf"
         if grep -q "/root/tailscale_config_backup/" /etc/sysupgrade.conf; then
             sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
         fi
@@ -305,20 +309,19 @@ upgrade_persistance() {
 }
 
 restore() {
-    echo -e "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
-    echo -e "\033[31m│R E S T O R I N G   T A I L S C A L E                                   │\033[0m"
-    echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
     echo -e "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m"
     echo -e "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m"
-    echo -e "> \033[36mDo you want to restore tailscale?\033[0m (y/N)"
+    echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
+    echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
+    echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
     if [ "$FORCE" -eq 1 ]; then
-        echo "--force flag is used. Continuing ..."
+        log "WARNING" "--force flag is used. Continuing"
         answer_restore="y"
     else
         read -r answer_restore
     fi
     if [ "$answer_restore" != "${answer_restore#[Yy]}" ]; then
-        echo "Restoring tailscale ... Please wait ..."
+        log "INFO" "Restoring tailscale"
         /etc/init.d/tailscale stop 2>/dev/null
         sleep 5
         if [ -f "/usr/sbin/tailscale" ]; then
@@ -327,38 +330,35 @@ restore() {
         if [ -f "/usr/sbin/tailscaled" ]; then
             rm /usr/sbin/tailscaled
         fi
-        echo "Restoring tailscale binary from rom ..."
+        log "INFO" "Restoring tailscale binary from rom"
         if [ -f "/rom/usr/sbin/tailscale" ]; then
             cp /rom/usr/sbin/tailscale /usr/sbin/tailscale
         else
-            echo -e "\033[31mERROR: tailscale binary not found in /rom. Exiting ...\033[0m"
+            log "ERROR" "tailscale binary not found in /rom. Exiting"
         fi
-        echo "Restoring tailscaled binary from rom ..."
+        log "INFO" "Restoring tailscaled binary from rom"
         if [ -f "/rom/usr/sbin/tailscaled" ]; then
             cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
         else
-            echo -e "\033[31mERROR: tailscaled binary not found in /rom. Exiting ...\033[0m"
+            log "ERROR" "tailscaled binary not found in /rom. Exiting"
         fi
-        echo "Restarting tailscale ... Might or might not work ..."
+        log "INFO" "Restarting tailscale Might or might not work"
         /etc/init.d/tailscale start 2>/dev/null
         # Remove from /etc/sysupgrade.conf
-        echo "Removing entries from /etc/sysupgrade.conf ..."
+        log "INFO" "Removing entries from /etc/sysupgrade.conf"
         sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
         sed -i '/\/usr\/sbin\/tailscaled/d' /etc/sysupgrade.conf
         sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
         sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
-        echo "Tailscale restored to factory default."
+        log "SUCCESS" "Tailscale restored to factory default."
     else
-        echo "Ok, see you next time!"
+        log "SUCCESS" "Ok, see you next time!"
         exit 1
     fi
 }
 
 invoke_outro() {
-    echo -e "\033[32m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
-    echo -e "\033[32m│ S C R I P T   F I N I S H E D   S U C C E S S F U L L Y                │\033[0m"
-    echo -e "\033[32m└────────────────────────────────────────────────────────────────────────┘\033[0m"
-    echo "Script finished successfully. The new tailscale version (software, daemon) is:"
+    log "SUCCESS" "Script finished successfully. The new tailscale version (software, daemon) is:"
     tailscale version
     tailscaled --version
 }
@@ -375,23 +375,51 @@ invoke_help() {
 }
 
 invoke_update() {
-     SCRIPT_VERSION_NEW=$(curl -s "https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve script version")
+     SCRIPT_VERSION_NEW=$(curl -s "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || log "ERROR" "Failed to retrieve script version")
     if [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
-        echo -e "\033[33mA new version of this script is available: $SCRIPT_VERSION_NEW\033[0m"
-        echo -e "\033[33mThe script will now be updated ...\033[0m"
-        wget -qO /tmp/update-tailscale.sh "https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh"
+        log "INFO" "A new version of this script is available: $SCRIPT_VERSION_NEW"
+        log "INFO" "Updating script"
+        wget -qO /tmp/update-tailscale.sh "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
         # Get current script path
         SCRIPT_PATH=$(readlink -f "$0")
         # Replace current script with updated script
         rm "$SCRIPT_PATH"
         mv /tmp/update-tailscale.sh "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
-        echo -e "\033[32mThe script has been updated successfully. It will restart in 3 seconds ...\033[0m"
+        log "SUCCESS" "Script updated successfully. Restarting in 3 seconds"
         sleep 3
         exec "$SCRIPT_PATH" "$@"
     else
-        echo -e "\033[32mYou are using the latest version of this script!\033[0m"
+        log "SUCCESS" "Script is up to date."
     fi
+}
+
+log() {
+    local level=$1
+    local message=$2
+    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local color=$INFO # Default to no color
+
+    # Assign color based on level
+    case "$level" in
+        ERROR)
+            level="x"
+            color=$RED
+            ;;
+        WARNING)
+            level="!"
+            color=$YELLOW
+            ;;
+        SUCCESS)
+            level="✓"
+            color=$GREEN
+            ;;
+        INFO)
+            level="→"
+            ;;
+    esac
+
+    echo -e "${color}[$timestamp] [$level] $message${INFO}"
 }
 
 
@@ -437,9 +465,11 @@ invoke_update "$@"
 # Start the script
 invoke_intro
 preflight_check
-echo -e "> \033[36mDo you want to continue?\033[0m (y/N)"
+echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
+echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
+echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
 if [ "$FORCE" -eq 1 ]; then
-    echo "--force flag is used. Continuing ..."
+    log "WARNING" "--force flag is used. Continuing"
     answer="y"
 else
     read -r answer
@@ -452,17 +482,19 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
         echo -e "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m"
         echo -e "\033[31m│ goes wrong.                                                            │\033[0m"
         echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
-        echo -e "> \033[36mDo you want to continue?\033[0m (y/N)"
+        echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
+        echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
+        echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
         if [ "$FORCE" -eq 1 ]; then
-            echo "--force flag is used. Continuing ..."
+            log "WARNING" "--force flag is used. Continuing"
             answer="y"
         else
             read -r answer
         fi
         if [ "$answer" != "${answer#[Yy]}" ]; then
-            echo "Ok, continuing ..."
+            log "INFO" "Ok, continuing"
         else
-            echo "Ok, see you next time!"
+            log "SUCCESS" "Ok, see you next time!"
             exit 1
         fi
     fi
@@ -473,6 +505,6 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     invoke_outro
     exit 0
 else
-    echo "Ok, see you next time!"
+    log "SUCCESS" "Ok, see you next time!"
     exit 1
 fi

@@ -1,5 +1,7 @@
 # Tailscale Update Script for GL.iNet Routers
 
+<img src="images/screen.jpg" width="400" align="right" alt="Profile Picture" style="border-radius: 10%;">
+
 This script is designed to update Tailscale on GL.iNet routers.
 
 It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on the MT-6000 (Flint2) with firmware 4.5.4.
@@ -32,7 +34,7 @@ The `update-tailscale.sh` script supports the following arguments:
 You can run it without cloning the repository by using the following command:
 
 ```shell
-wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet.forum/main/scripts/update-tailscale/update-tailscale.sh && sh update-tailscale.sh
+wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh
 ```
 
 **Please do not run this script as a cron job! It is recommended to run it manually!**
