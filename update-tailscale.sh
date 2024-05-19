@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-05-19
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.05.19.01"
+SCRIPT_VERSION="2024.05.19.02"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
@@ -265,8 +265,6 @@ install_tailscale() {
     log "INFO" "Removing temporary files"
     rm -rf /tmp/tailscale
     # Restart tailscale
-    log "INFO" "Restarting tailscale"
-    /etc/init.d/tailscale restart 2>/dev/null
 }
 
 upgrade_persistance() {
@@ -409,6 +407,11 @@ invoke_modify_script() {
     log "SUCCESS" "gl_tailscale script modified successfully"
 }
 
+restart_tailscale() {
+    log "INFO" "Restarting tailscale"
+    /etc/init.d/tailscale restart 2>/dev/null
+}
+
 log() {
     local level=$1
     local message=$2
@@ -517,6 +520,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     backup
     install_tailscale
     invoke_modify_script
+    restart_tailscale
     upgrade_persistance
     invoke_outro
     exit 0
