@@ -12,6 +12,8 @@
 # Updated: 2024-05-19
 # Date: 2024-01-24
 SCRIPT_VERSION="2024.05.19.02"
+SCRIPT_NAME="update-tailscale.sh"
+UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
@@ -381,22 +383,23 @@ invoke_help() {
 }
 
 invoke_update() {
-     SCRIPT_VERSION_NEW=$(curl -s "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || log "ERROR" "Failed to retrieve script version")
-    if [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
-        log "INFO" "A new version of this script is available: $SCRIPT_VERSION_NEW"
-        log "INFO" "Updating script"
-        wget -qO /tmp/update-tailscale.sh "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
-        # Get current script path
-        SCRIPT_PATH=$(readlink -f "$0")
-        # Replace current script with updated script
-        rm "$SCRIPT_PATH"
-        mv /tmp/update-tailscale.sh "$SCRIPT_PATH"
-        chmod +x "$SCRIPT_PATH"
-        log "SUCCESS" "Script updated successfully. Restarting in 3 seconds"
-        sleep 3
-        exec "$SCRIPT_PATH" "$@"
+    log "INFO" "Checking for script updates"
+    SCRIPT_VERSION_NEW=$(curl -s "$UPDATE_URL" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
+    if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
+       log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
+       log "INFO" "Updating the script ..."
+       wget -qO /tmp/$SCRIPT_NAME "$UPDATE_URL"
+       # Get current script path
+       SCRIPT_PATH=$(readlink -f "$0")
+       # Replace current script with updated script
+       rm "$SCRIPT_PATH"
+       mv /tmp/$SCRIPT_NAME "$SCRIPT_PATH"
+       chmod +x "$SCRIPT_PATH"
+       log "INFO" "The script has been updated. It will now restart ..."
+       sleep 3
+       exec "$SCRIPT_PATH" "$@"
     else
-        log "SUCCESS" "Script is up to date."
+        log "SUCCESS" "The script is up to date"
     fi
 }
 
