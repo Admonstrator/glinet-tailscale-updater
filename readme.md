@@ -70,3 +70,5 @@ This script is provided as is and without any warranty. Use it at your own risk.
 ## Contributers
 
 Thanks to [lwbt](https://github.com/lwbt) for the UPX compression!
+
+Thanks to [Aubermean](https://github.com/Aubermean) for the clearification of the `--stateful-filtering=false` (see #1) option!
