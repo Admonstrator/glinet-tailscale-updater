@@ -11,7 +11,7 @@
 # Contributor: lwbt
 # Updated: 2024-05-19
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.05.19.02"
+SCRIPT_VERSION="2024.05.19.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 # ^ Update this version number when you make changes to the script
