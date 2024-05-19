@@ -9,9 +9,9 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Updated: 2024-06-05
+# Updated: 2024-05-19
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.05.06.01"
+SCRIPT_VERSION="2024.05.19.01"
 # ^ Update this version number when you make changes to the script
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
@@ -305,6 +305,9 @@ upgrade_persistance() {
         if ! grep -q "/etc/config/tailscale" /etc/sysupgrade.conf; then
             echo "/etc/config/tailscale" >>/etc/sysupgrade.conf
         fi
+        if ! grep -q "/usr/bin/gl_tailscale" /etc/sysupgrade.conf; then
+            echo "/usr/bin/gl_tailscale" >>/etc/sysupgrade.conf
+        fi
     fi
 }
 
@@ -341,6 +344,11 @@ restore() {
             cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
         else
             log "ERROR" "tailscaled binary not found in /rom. Exiting"
+        fi
+        if [ -f "/rom/usr/bin/gl_tailscale" ]; then
+            cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
+        else
+            log "ERROR" "gl_tailscale script not found in /rom. Exiting"
         fi
         log "INFO" "Restarting tailscale Might or might not work"
         /etc/init.d/tailscale start 2>/dev/null
@@ -392,6 +400,13 @@ invoke_update() {
     else
         log "SUCCESS" "Script is up to date."
     fi
+}
+
+invoke_modify_script() {
+    log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
+    # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false
+    sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|' /usr/bin/gl_tailscale
+    log "SUCCESS" "gl_tailscale script modified successfully"
 }
 
 log() {
@@ -501,6 +516,7 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
     get_latest_tailscale_version
     backup
     install_tailscale
+    invoke_modify_script
     upgrade_persistance
     invoke_outro
     exit 0
