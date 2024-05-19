@@ -4,7 +4,7 @@
 
 This script is designed to update Tailscale on GL.iNet routers.
 
-It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on the MT-6000 (Flint2) with firmware 4.5.4.
+It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on the MT-6000 (Flint2) with firmware 4.6.0.
 
 ## Requirements
 
@@ -47,6 +47,10 @@ By using the --force option, the script will skip all confirmation prompts. It w
 
 You can use --ignore-free-space to ignore the free space check. This is useful for devices with low free space. Please use with caution!
 
+## Tailscale stateful filtering
+
+The script will add the `--stateful-filtering=false` option to the gl_tailscale script. This is necessary for the tailscaled service to work correctly on GL.iNet routers, if exit nodes are used. The modification is done automatically and you don't have to do anything. It will be permanent and will survive a firmware upgrade.
+
 ## UPX compression
 
 The script uses UPX to compress the tailscale binaries. You will be asked if you want to use UPX compression. It is recommended to use UPX compression, as it will reduce the size of the tailscale binaries. If you choose not to use UPX compression, the script will still work, but the tailscale binaries will be larger.
@@ -71,4 +75,4 @@ This script is provided as is and without any warranty. Use it at your own risk.
 
 Thanks to [lwbt](https://github.com/lwbt) for the UPX compression!
 
-Thanks to [Aubermean](https://github.com/Aubermean) for the clearification of the `--stateful-filtering=false` (see #1) option!
+Thanks to [Aubermean](https://github.com/Aubermean) for the clearification of the `--stateful-filtering=false` ([#1](https://github.com/Admonstrator/glinet-tailscale-updater/issues/1)) option!
