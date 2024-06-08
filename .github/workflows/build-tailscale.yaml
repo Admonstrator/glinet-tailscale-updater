@@ -118,6 +118,8 @@ jobs:
       - name: Create checksums
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
+      - name: Create version file
+        run: echo "${{ env.TAG }}" > "version.txt"
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
         uses: actions/checkout@v4
         with:
