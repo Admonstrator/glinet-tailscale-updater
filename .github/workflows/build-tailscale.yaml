@@ -7,7 +7,6 @@ env:
   SOFTWARE_NAME: "Tailscale"
   FILE_NAME: "tailscaled"
   REPO: "tailscale/tailscale"
-  # TODO: If you have forked or copied this code you need to change to your repository here.
   REPO_SMALL: "Admonstrator/glinet-tailscale-update"
   GIT_AUTHOR_NAME: "Admonstator"
 jobs:
@@ -31,12 +30,12 @@ jobs:
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
         id: tag_small
         run: |
-          latest_tag=$(
+          latest_tag_small=$(
             curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
             | grep -oP '"tag_name": "\K(.*)(?=")' || echo ""
           )
-          echo "TAG_SMALL=$latest_tag" >> "$GITHUB_OUTPUT"
-          echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag"
+          echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
+          echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag_small"
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -55,7 +54,7 @@ jobs:
           - arm64
           - mips
     steps:
-      - name: Checkout ${{ env.SOFTWARE_NAME }}repository
+      - name: Checkout ${{ env.SOFTWARE_NAME }} repository
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
@@ -87,9 +86,6 @@ jobs:
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     steps:
-      # NOTE: While UPX seems to be at least available on the Ubuntu Runner
-      # images, we opt to use the most recent version here with the latest
-      # fixes.
       - name: Get UPX latest version
         id: get-upx-version
         run: |
@@ -98,11 +94,6 @@ jobs:
             | jq -r '.tag_name' \
             | cut -c 2-
           )" >> "$GITHUB_ENV"
-      # NOTE: Ideally we want to use either the preinstalled version or the
-      # latest version. If the version number wasn't included in the download
-      # we could skip the step of determining what the latest version is. I
-      # will leave the URL with the version number here for now.
-      #   wget -q "https://github.com/upx/upx/releases/download/v${{ env.UPX_VERSION }}/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
       - name: Download UPX
         run: |
           wget -q "https://github.com/upx/upx/releases/latest/download/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
@@ -131,6 +122,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: tools
+          repository: ${{ env.REPO_SMALL }}
       - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
         run: |
           cd tools
@@ -143,6 +135,7 @@ jobs:
             git push --tags
           fi
       - name: Create Release
+        if: github.ref == 'refs/tags/${{ env.TAG }}'
         uses: ncipollo/release-action@v1
         with:
           name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
@@ -150,7 +143,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
-          #allowupdates: true
           artifacts: |
             ${{ env.FILE_NAME }}-*
             checksums.txt
