@@ -1,4 +1,4 @@
-name: Build Go Binaries
+name: Build smaller Tailscale binary
 on:
   schedule:
     - cron: '30 0/12 * * *'
