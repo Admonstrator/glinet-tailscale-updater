@@ -1,0 +1,168 @@
+name: Build Go Binaries
+on:
+  schedule:
+    - cron: '30 0/12 * * *'
+  workflow_dispatch:
+env:
+  SOFTWARE_NAME: "Tailscale"
+  FILE_NAME: "tailscaled"
+  REPO: "tailscale/tailscale"
+  # TODO: If you have forked or copied this code you need to change to your repository here.
+  REPO_SMALL: "Admonstrator/glinet-tailscale-update"
+  GIT_AUTHOR_NAME: "Admonstator"
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      TAG: ${{ steps.tag.outputs.TAG }}
+      TAG_SMALL: ${{ steps.tag_small.outputs.TAG_SMALL }}
+    steps:
+      - name: Get latest ${{ env.SOFTWARE_NAME }} tag
+        id: tag
+        run: |
+          latest_tag=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases/latest" \
+            | grep -oP '"tag_name": "\K(.*)(?=")'
+          )
+          echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
+      - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
+        id: tag_small
+        run: |
+          latest_tag=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
+            | grep -oP '"tag_name": "\K(.*)(?=")' || echo ""
+          )
+          echo "TAG_SMALL=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag"
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: check-versions
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    env:
+      TAG: ${{ needs.check-versions.outputs.TAG }}
+    strategy:
+      matrix:
+        go-version: [stable]
+        os: [linux]
+        platform:
+          - amd64
+          - arm
+          - arm64
+          - mips
+    steps:
+      - name: Checkout ${{ env.SOFTWARE_NAME }}repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO }}
+          ref: ${{ env.TAG }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Download Go modules
+        run: go mod download
+      - name: Cross-compile
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} ./build_dist.sh \
+          --extra-small --box \
+          -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" ./cmd/${{ env.FILE_NAME }}
+      - name: Upload built binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+          path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - build
+      - check-versions
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    env:
+      TAG: ${{ needs.check-versions.outputs.TAG }}
+    steps:
+      # NOTE: While UPX seems to be at least available on the Ubuntu Runner
+      # images, we opt to use the most recent version here with the latest
+      # fixes.
+      - name: Get UPX latest version
+        id: get-upx-version
+        run: |
+          echo "UPX_VERSION=$(
+            curl -s https://api.github.com/repos/upx/upx/releases/latest \
+            | jq -r '.tag_name' \
+            | cut -c 2-
+          )" >> "$GITHUB_ENV"
+      # NOTE: Ideally we want to use either the preinstalled version or the
+      # latest version. If the version number wasn't included in the download
+      # we could skip the step of determining what the latest version is. I
+      # will leave the URL with the version number here for now.
+      #   wget -q "https://github.com/upx/upx/releases/download/v${{ env.UPX_VERSION }}/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
+      - name: Download UPX
+        run: |
+          wget -q "https://github.com/upx/upx/releases/latest/download/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
+          tar --to-stdout -xf "upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz" \
+            "upx-${{ env.UPX_VERSION }}-amd64_linux/upx" > "${PWD}/upx"
+          chmod -v +x "${PWD}/upx"
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.FILE_NAME }}-*
+      - name: Moving files
+        run: |
+          for dir in "${{ env.FILE_NAME }}-"*; do
+            mv -v "${dir}" "${dir}.d"
+            mv -v "${dir}.d/${{ env.FILE_NAME }}-"* .
+            rmdir -v "${dir}.d"
+          done
+          chmod -v +x "${{ env.FILE_NAME }}-"*
+      - name: Compress Binary with UPX
+        run: |
+          "${PWD}/upx" --lzma --best --no-progress "${{ env.FILE_NAME }}-"*
+      - name: Create checksums
+        run: |
+          sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
+      - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
+        uses: actions/checkout@v4
+        with:
+          path: tools
+      - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
+        run: |
+          cd tools
+          if git rev-parse --quiet --verify "refs/tags/${{ env.TAG }}"; then
+            echo "Tag already exists"
+            exit 0
+          else
+            echo "Tag does not exist, creating"
+            git tag "${{ env.TAG }}"
+            git push --tags
+          fi
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
+          tag: ${{ env.TAG }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          #allowupdates: true
+          artifacts: |
+            ${{ env.FILE_NAME }}-*
+            checksums.txt
+          body: |
+            Small ${{ env.SOFTWARE_NAME }} build ${{ env.TAG }}
+
+            For a complete changelog go to https://github.com/${{ env.REPO }}/releases/tag/${{ env.TAG }}
+
+            This release was created by:
+
+            * Building a combined binary of `tailscale` and `tailscaled`
+            * Using the build option `--extra-small`
+            * Compressing the binary with UPX
+
+            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic (`ln -sv tailscaled tailscale`)
