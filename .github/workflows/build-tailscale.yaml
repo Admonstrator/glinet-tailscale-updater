@@ -7,7 +7,7 @@ env:
   SOFTWARE_NAME: "Tailscale"
   FILE_NAME: "tailscaled"
   REPO: "tailscale/tailscale"
-  REPO_SMALL: "Admonstrator/glinet-tailscale-update"
+  REPO_SMALL: "Admonstrator/glinet-tailscale-updater"
   GIT_AUTHOR_NAME: "Admonstator"
 jobs:
   check-versions:
