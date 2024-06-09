@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.06.09.01"
+SCRIPT_VERSION="2024.06.09.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -44,7 +44,7 @@ invoke_intro() {
     echo "│ This script will update Tailscale on your router.                      │"
     echo "│                                                                        │"
     echo "│ Prerequisites:                                                         │"
-    echo "│ 1. At least 50 MB of free space.                                       │"
+    echo "│ 1. At least 15 MB of free space.                                       │"
     echo "│ 2. Firmware version 4 or higher.                                       │"
     echo "│ 3. Architecture arm64, armv7 or mips.                                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
