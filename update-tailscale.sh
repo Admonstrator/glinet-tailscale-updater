@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.06.09.03"
+SCRIPT_VERSION="2024.06.09.04"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -127,7 +127,7 @@ get_latest_tailscale_version_tiny() {
     fi
     TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
     if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
-        log "INFO" "You already have the latest version."
+        log "SUCCESS" "You already have the latest version."
         exit 0
     fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
@@ -165,7 +165,7 @@ get_latest_tailscale_version() {
         fi
         TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
         if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
-            log "INFO" "You already have the latest version."
+            log "SUCCESS" "You already have the latest version."
             exit 0
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
