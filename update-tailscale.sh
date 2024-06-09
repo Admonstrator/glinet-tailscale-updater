@@ -125,6 +125,11 @@ get_latest_tailscale_version_tiny() {
         log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
         exit 1
     fi
+    TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
+    if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+        log "INFO" "You already have the latest version."
+        exit 0
+    fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     log "INFO" "Downloading latest tailscale version"
     wget -qO /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
@@ -157,6 +162,11 @@ get_latest_tailscale_version() {
         if [ -z "$TAILSCALE_VERSION_NEW" ]; then
             log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
             exit 1
+        fi
+        TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
+        if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+            log "INFO" "You already have the latest version."
+            exit 0
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
         log "INFO" "Downloading latest tailscale version"
