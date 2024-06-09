@@ -9,14 +9,14 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Updated: 2024-05-19
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.05.19.03"
+SCRIPT_VERSION="2024.06.09.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
+TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
 # ^ Update this version number when you make changes to the script
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--help]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
@@ -26,6 +26,7 @@ RESTORE=0
 UPX_ERROR=0
 NO_UPX=0
 NO_DOWNLOAD=0
+NO_TINY=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -55,6 +56,7 @@ preflight_check() {
     ARCH=$(uname -m)
     FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
     PREFLIGHT=0
+    TINY_ARCH=""
 
     log "INFO" "Checking if prerequisites are met"
     if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
@@ -64,22 +66,25 @@ preflight_check() {
         log "SUCCESS" "Firmware version: $FIRMWARE_VERSION"
     fi
     if [ "$ARCH" = "aarch64" ]; then
+        TINY_ARCH="arm64"
         log "SUCCESS" "Architecture: arm64"
     elif [ "$ARCH" = "armv7l" ]; then
+        TINY_ARCH="arm"
         log "SUCCESS" "Architecture: armv7"
     elif [ "$ARCH" = "mips" ]; then
+        TINY_ARCH="mips"
         log "SUCCESS" "Architecture: mips"
     else
         log "ERROR" "This script only works on arm64, armv7 and mips."
         PREFLIGHT=1
     fi
-    if [ "$AVAILABLE_SPACE" -lt 50 ]; then
+    if [ "$AVAILABLE_SPACE" -lt 15 ]; then
         log "ERROR" "Not enough space available. Please free up some space and try again."
-        log "ERROR" "The script needs at least 50 MB of free space. Available space: $AVAILABLE_SPACE MB"
+        log "ERROR" "The script needs at least 15 MB of free space. Available space: $AVAILABLE_SPACE MB"
         log "ERROR" "If you want to continue, you can use --ignore-free-space to ignore this check."
         if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
             log "WARNING" "--ignore-free-space flag is used. Continuing without enough space"
-             log "WARNING" "Current available space: $AVAILABLE_SPACE MB"
+            log "WARNING" "Current available space: $AVAILABLE_SPACE MB"
         else
             PREFLIGHT=1
         fi
@@ -109,6 +114,26 @@ backup() {
     tar czf "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" -C "/" "etc/config/tailscale"
     log "SUCCESS" "Backup created: /root/tailscale_config_backup/$TIMESTAMP.tar.gz"
     log "INFO" "The binaries will not be backed up, you can restore them by using the --restore flag."
+}
+
+get_latest_tailscale_version_tiny() {
+    # Will attempt to download the latest version of tailscale from the updater repository
+    # This is the default behavior
+    log "INFO" "Detecting latest tiny tailscale version"
+    TAILSCALE_VERSION_NEW=$(curl -L -s $TAILSCALE_TINY_URL/version.txt | grep -o '[0-9]*\.[0-9]*\.[0-9]')
+    if [ -z "$TAILSCALE_VERSION_NEW" ]; then
+        log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
+        exit 1
+    fi
+    log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
+    log "INFO" "Downloading latest tailscale version"
+    wget -qO /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
+    # Check if download was successful
+    if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
+        log "ERROR" "Could not download tailscale. Exiting"
+        log "ERROR" "File not found: /tmp/tailscaled-linux-$TINY_ARCH"
+        exit 1
+    fi
 }
 
 get_latest_tailscale_version() {
@@ -144,7 +169,7 @@ get_latest_tailscale_version() {
         exit 1
     fi
 
-     log "INFO" "Finding tailscale binaries in archive"
+    log "INFO" "Finding tailscale binaries in archive"
     TAILSCALE_SUBDIR_IN_TAR=$(tar tzf /tmp/tailscale.tar.gz | grep /$ | head -n 1)
     TAILSCALE_SUBDIR_IN_TAR=${TAILSCALE_SUBDIR_IN_TAR%/}
     if [ -z "$TAILSCALE_SUBDIR_IN_TAR" ]; then
@@ -192,10 +217,10 @@ compress_binaries() {
     fi
     log "INFO" "Getting UPX"
     upx_version="$(
-        curl -s "https://api.github.com/repos/upx/upx/releases/latest" \
-            | grep 'tag_name' \
-            | cut -d : -f 2 \
-            | tr -d '"v, '
+        curl -s "https://api.github.com/repos/upx/upx/releases/latest" |
+            grep 'tag_name' |
+            cut -d : -f 2 |
+            tr -d '"v, '
     )"
 
     if [ "$ARCH" = "aarch64" ]; then
@@ -216,8 +241,8 @@ compress_binaries() {
         UPX_ERROR=1
     else
         # Extract only the upx binary
-        unxz --decompress --stdout "/tmp/upx.tar.xz" \
-            | tar x -C "/tmp/" "upx-${upx_version}-${UPX_ARCH}_linux/upx"
+        unxz --decompress --stdout "/tmp/upx.tar.xz" |
+            tar x -C "/tmp/" "upx-${upx_version}-${UPX_ARCH}_linux/upx"
         mv "/tmp/upx-${upx_version}-${UPX_ARCH}_linux/upx" "/tmp/upx"
         rmdir "/tmp/upx-${upx_version}-${UPX_ARCH}_linux"
         rm "/tmp/upx.tar.xz"
@@ -266,6 +291,29 @@ install_tailscale() {
     # Remove temporary files
     log "INFO" "Removing temporary files"
     rm -rf /tmp/tailscale
+    # Restart tailscale
+}
+
+install_tiny_tailscale() {
+    # Stop tailscale
+    log "INFO" "Stopping tailscale"
+    /etc/init.d/tailscale stop 2>/dev/null
+    sleep 5
+    # Moving tailscale to /usr/sbin
+    log "INFO" "Moving tailscale to /usr/sbin"
+    # Check if tailscale binary is present
+    if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
+        log "ERROR" "Tailscaled binary not found. Exiting"
+        exit 1
+    fi
+    mv /tmp/tailscaled-linux-$TINY_ARCH /usr/sbin/tailscaled
+    # Create symlink for tailscale
+    ln -sf /usr/sbin/tailscaled /usr/sbin/tailscale
+    # Make the binary executable
+    chmod +x /usr/sbin/tailscaled
+    # Remove temporary files
+    log "INFO" "Removing temporary files"
+    rm -rf /tmp/tailscaled-linux-$TINY_ARCH
     # Restart tailscale
 }
 
@@ -379,6 +427,7 @@ invoke_help() {
     echo -e "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m"
     echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
     echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
+    echo -e "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m"
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
@@ -386,18 +435,18 @@ invoke_update() {
     log "INFO" "Checking for script updates"
     SCRIPT_VERSION_NEW=$(curl -s "$UPDATE_URL" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
     if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
-       log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
-       log "INFO" "Updating the script ..."
-       wget -qO /tmp/$SCRIPT_NAME "$UPDATE_URL"
-       # Get current script path
-       SCRIPT_PATH=$(readlink -f "$0")
-       # Replace current script with updated script
-       rm "$SCRIPT_PATH"
-       mv /tmp/$SCRIPT_NAME "$SCRIPT_PATH"
-       chmod +x "$SCRIPT_PATH"
-       log "INFO" "The script has been updated. It will now restart ..."
-       sleep 3
-       exec "$SCRIPT_PATH" "$@"
+        log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
+        log "INFO" "Updating the script ..."
+        wget -qO /tmp/$SCRIPT_NAME "$UPDATE_URL"
+        # Get current script path
+        SCRIPT_PATH=$(readlink -f "$0")
+        # Replace current script with updated script
+        rm "$SCRIPT_PATH"
+        mv /tmp/$SCRIPT_NAME "$SCRIPT_PATH"
+        chmod +x "$SCRIPT_PATH"
+        log "INFO" "The script has been updated. It will now restart ..."
+        sleep 3
+        exec "$SCRIPT_PATH" "$@"
     else
         log "SUCCESS" "The script is up to date"
     fi
@@ -423,54 +472,56 @@ log() {
 
     # Assign color based on level
     case "$level" in
-        ERROR)
-            level="x"
-            color=$RED
-            ;;
-        WARNING)
-            level="!"
-            color=$YELLOW
-            ;;
-        SUCCESS)
-            level="✓"
-            color=$GREEN
-            ;;
-        INFO)
-            level="→"
-            ;;
+    ERROR)
+        level="x"
+        color=$RED
+        ;;
+    WARNING)
+        level="!"
+        color=$YELLOW
+        ;;
+    SUCCESS)
+        level="✓"
+        color=$GREEN
+        ;;
+    INFO)
+        level="→"
+        ;;
     esac
 
     echo -e "${color}[$timestamp] [$level] $message${INFO}"
 }
 
-
 # Read arguments
 for arg in "$@"; do
     case $arg in
-        --help)
-            invoke_help
-            exit 0
-            ;;
-        --force)
-            FORCE=1
-            ;;
-        --ignore-free-space)
-            IGNORE_FREE_SPACE=1
-            ;;
-        --restore)
-            RESTORE=1
-            ;;
-        --no-upx)
-            NO_UPX=1
-            ;;
-        --no-download)
-            NO_DOWNLOAD=1
-            ;;
-        *)
-            echo "Unknown argument: $arg"
-            invoke_help
-            exit 1
-            ;;
+    --help)
+        invoke_help
+        exit 0
+        ;;
+    --force)
+        FORCE=1
+        ;;
+    --ignore-free-space)
+        IGNORE_FREE_SPACE=1
+        ;;
+    --restore)
+        RESTORE=1
+        ;;
+    --no-upx)
+        NO_UPX=1
+        ;;
+    --no-download)
+        NO_DOWNLOAD=1
+        ;;
+    --no-tiny)
+        NO_TINY=1
+        ;;
+    *)
+        echo "Unknown argument: $arg"
+        invoke_help
+        exit 1
+        ;;
     esac
 done
 
@@ -519,14 +570,28 @@ if [ "$answer" != "${answer#[Yy]}" ]; then
             exit 1
         fi
     fi
-    get_latest_tailscale_version
-    backup
-    install_tailscale
-    invoke_modify_script
-    restart_tailscale
-    upgrade_persistance
-    invoke_outro
-    exit 0
+
+    if [ "$NO_TINY" -eq 1 ]; then
+    # Load the original tailscale
+        get_latest_tailscale_version
+        backup
+        install_tailscale
+        invoke_modify_script
+        restart_tailscale
+        upgrade_persistance
+        invoke_outro
+        exit 0
+    else
+    # Load the tiny tailscale
+        get_latest_tailscale_version_tiny
+        backup
+        install_tiny_tailscale
+        invoke_modify_script
+        restart_tailscale
+        upgrade_persistance
+        invoke_outro
+        exit 0
+    fi
 else
     log "SUCCESS" "Ok, see you next time!"
     exit 1

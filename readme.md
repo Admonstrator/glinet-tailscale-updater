@@ -10,7 +10,7 @@ It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet co
 
 - GL.iNet router with firmware 4.x
 - Supported architecture: arm64, armv7, mips
-- Free space: at least 50 MB
+- Free space: at least 15 MB
 - xz installed if you want to use UPX compression, if it's not installed, the script will install it for you
 
 ## Arguments
@@ -26,6 +26,8 @@ The `update-tailscale.sh` script supports the following arguments:
 - `--no-upx`: Skips the UPX compression. The tailscale binaries will be larger but the update will be faster.
 
 - `--no-download`: Skips the download of the tailscale binaries. Useful if you have already downloaded the binaries and want to use them. Store the archive as `/tmp/tailscale.tar.gz`.
+
+- `--no-tiny`: Won't use the tiny version of the tailscale binaries. Useful if you want to use the full version of the tailscale binaries. The tiny version is recommended for GL.iNet routers.
 
 - `--help`: Displays the help message with information about the available arguments.
 
@@ -51,9 +53,13 @@ You can use --ignore-free-space to ignore the free space check. This is useful f
 
 The script will add the `--stateful-filtering=false` option to the gl_tailscale script. This is necessary for the tailscaled service to work correctly on GL.iNet routers, if exit nodes are used. The modification is done automatically and you don't have to do anything. It will be permanent and will survive a firmware upgrade.
 
+## Tiny-Tailscale
+
+By default, the script will use the tiny version of the tailscale binaries. They are way smaller and will save plenty of space on your device. If you want to use the full version of the tailscale binaries, you can use the `--no-tiny` option. There are no other differences between the tiny and the full version of the tailscale binaries. UPX compression will be skipped while using the tiny version.
+
 ## UPX compression
 
-The script uses UPX to compress the tailscale binaries. You will be asked if you want to use UPX compression. It is recommended to use UPX compression, as it will reduce the size of the tailscale binaries. If you choose not to use UPX compression, the script will still work, but the tailscale binaries will be larger.
+The script uses UPX to compress the tailscale binaries. You will be asked if you want to use UPX compression. It is recommended to use UPX compression, as it will reduce the size of the tailscale binaries. If you choose not to use UPX compression, the script will still work, but the tailscale binaries will be larger. UPX compression will be skipped while using the tiny version of the tailscale binaries.
 
 ## Restoring the original files
 
@@ -73,6 +79,6 @@ This script is provided as is and without any warranty. Use it at your own risk.
 
 ## Contributers
 
-Thanks to [lwbt](https://github.com/lwbt) for the UPX compression!
+Thanks to [lwbt](https://github.com/lwbt) for the UPX compression & the tiny-tailscale feature!
 
 Thanks to [Aubermean](https://github.com/Aubermean) for the clearification of the `--stateful-filtering=false` ([#1](https://github.com/Admonstrator/glinet-tailscale-updater/issues/1)) option!
