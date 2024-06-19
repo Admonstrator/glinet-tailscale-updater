@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.06.19.01"
+SCRIPT_VERSION="2024.06.19.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -174,7 +174,7 @@ get_latest_tailscale_version() {
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
         log "INFO" "Downloading latest tailscale version"
-        wget -U "$WGET_USER_AGENT"-qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+        wget -U "$WGET_USER_AGENT" -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
         # Check if download was successful
     fi
     if [ ! -f "/tmp/tailscale.tar.gz" ]; then
