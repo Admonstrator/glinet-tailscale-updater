@@ -10,11 +10,11 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.06.09.04"
+SCRIPT_VERSION="2024.06.19.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
-# ^ Update this version number when you make changes to the script
+WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 #
 # Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help]
 # Warning: This script might potentially harm your router. Use it at your own risk.
@@ -128,11 +128,15 @@ get_latest_tailscale_version_tiny() {
     TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
     if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
         log "SUCCESS" "You already have the latest version."
+        log "INFO" "If you encounter issues while using the tiny version, please use the normal version."
+        log "INFO" "You can do this by using the --no-tiny flag."
+        log "INFO" "Make sure to have enough space available. The normal version needs at least 50 MB."
+        log "INFO" "This issue is because not every release will be published in the official repository."
         exit 0
     fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     log "INFO" "Downloading latest tailscale version"
-    wget -qO /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
+    wget -U "$WGET_USER_AGENT" -qO /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
     # Check if download was successful
     if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
         log "ERROR" "Could not download tailscale. Exiting"
@@ -170,7 +174,7 @@ get_latest_tailscale_version() {
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
         log "INFO" "Downloading latest tailscale version"
-        wget -qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+        wget -U "$WGET_USER_AGENT"-qO /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
         # Check if download was successful
     fi
     if [ ! -f "/tmp/tailscale.tar.gz" ]; then
@@ -241,7 +245,7 @@ compress_binaries() {
         UPX_ARCH="$ARCH"
     fi
 
-    wget -qO "/tmp/upx.tar.xz" \
+    wget -U "$WGET_USER_AGENT" -qO "/tmp/upx.tar.xz" \
         "https://github.com/upx/upx/releases/download/v${upx_version}/upx-${upx_version}-${UPX_ARCH}_linux.tar.xz"
 
     # If download fails, skip compression
@@ -447,7 +451,7 @@ invoke_update() {
     if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
         log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
         log "INFO" "Updating the script ..."
-        wget -qO /tmp/$SCRIPT_NAME "$UPDATE_URL"
+        wget -U "$WGET_USER_AGENT" -qO /tmp/$SCRIPT_NAME "$UPDATE_URL"
         # Get current script path
         SCRIPT_PATH=$(readlink -f "$0")
         # Replace current script with updated script
