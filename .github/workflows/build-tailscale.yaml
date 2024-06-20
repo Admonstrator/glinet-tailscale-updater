@@ -22,8 +22,8 @@ jobs:
         id: tag
         run: |
           latest_tag=$(
-            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases/latest" \
-            | grep -oP '"tag_name": "\K(.*)(?=")'
+            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases" \
+            | jq -r 'sort_by(.published_at) | last | .tag_name'
           )
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
