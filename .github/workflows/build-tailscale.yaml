@@ -41,7 +41,7 @@ jobs:
     permissions:
       contents: write
     needs: check-versions
-    if: ${{ needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG || github.event_name == 'workflow_dispatch' }}
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     strategy:
@@ -80,7 +80,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: build
+    needs:
+      - build
+      - check-versions
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     steps:
