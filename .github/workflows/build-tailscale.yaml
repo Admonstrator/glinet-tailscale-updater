@@ -53,6 +53,7 @@ jobs:
           - arm
           - arm64
           - mips
+          - mipsle
     steps:
       - name: Checkout ${{ env.SOFTWARE_NAME }} repository
         uses: actions/checkout@v4
