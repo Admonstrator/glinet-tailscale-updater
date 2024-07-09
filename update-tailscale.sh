@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.07.09.02"
+SCRIPT_VERSION="2024.07.09.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -76,13 +76,12 @@ preflight_check() {
         if [ "$MODEL" = "GL.iNet GL-MT1300" ]; then
             TINY_ARCH="mipsle"
             log "SUCCESS" "Architecture: mipsle"
-            PREFLIGHT=1
         else
             TINY_ARCH="mips"
             log "SUCCESS" "Architecture: mips"
         fi
     else    
-        log "ERROR" "This script only works on arm64, armv7 and mips."
+        log "ERROR" "This script only works on arm64, armv7, mips and mipsle"
         PREFLIGHT=1
     fi
     if [ "$AVAILABLE_SPACE" -lt 15 ]; then
