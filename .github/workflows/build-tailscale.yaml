@@ -68,9 +68,15 @@ jobs:
         run: go mod download
       - name: Cross-compile
         run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} ./build_dist.sh \
-          --extra-small --box \
-          -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" ./cmd/${{ env.FILE_NAME }}
+          if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
+            GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat ./build_dist.sh \
+            --extra-small --box \
+            -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" ./cmd/${{ env.FILE_NAME }}
+          else
+            GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} ./build_dist.sh \
+            --extra-small --box \
+            -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" ./cmd/${{ env.FILE_NAME }}
+          fi
       - name: Upload built binary
         uses: actions/upload-artifact@v4
         with:
