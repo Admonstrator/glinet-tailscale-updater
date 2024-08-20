@@ -123,9 +123,7 @@ jobs:
           chmod -v +x "${{ env.FILE_NAME }}-"*
       - name: Compress Binary with UPX
         run: |
-          if [[ "${{ matrix.platform }}" != "mips64le" ]]; then
-            "${PWD}/upx" --lzma --best --no-progress "${{ env.FILE_NAME }}-"*
-          fi
+          "${PWD}/upx" --qq --lzma --best --no-progress "${{ env.FILE_NAME }}-"*
       - name: Create checksums
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
