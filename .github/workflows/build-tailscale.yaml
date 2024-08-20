@@ -54,6 +54,8 @@ jobs:
           - arm64
           - mips
           - mipsle
+          - mips64
+          - mips64le
     steps:
       - name: Checkout ${{ env.SOFTWARE_NAME }} repository
         uses: actions/checkout@v4
@@ -168,4 +170,4 @@ jobs:
             * Using the build option `--extra-small`
             * Compressing the binary with UPX
 
-            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic (`ln -sv tailscaled tailscale`)
+            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic (`ln -sv tailscaled tailscale`) link.
