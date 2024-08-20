@@ -123,7 +123,13 @@ jobs:
           chmod -v +x "${{ env.FILE_NAME }}-"*
       - name: Compress Binary with UPX
         run: |
-          "${PWD}/upx" -qq --lzma --best --no-progress "${{ env.FILE_NAME }}-"*
+          for file in "${{ env.FILE_NAME }}-"*; do
+            if [[ "$file" == *"mips64"* || "$file" == *"mips64le"* ]]; then
+              echo "Skipping UPX compression for $file due to unsupported format"
+            else
+              "${PWD}/upx" --lzma --best --no-progress "$file"
+            fi
+          done
       - name: Create checksums
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
