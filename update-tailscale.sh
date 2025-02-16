@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2024.10.25.01"
+SCRIPT_VERSION="2025.02.16.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -74,7 +74,7 @@ preflight_check() {
     # Check for specific models that use mipsle architecture
     MODEL=$(grep 'machine' /proc/cpuinfo | awk -F ': ' '{print $2}')
     case "$MODEL" in
-        "GL.iNet GL-MT1300" | "GL-MT300N-V2")
+        "GL.iNet GL-MT1300" | "GL-MT300N-V2" | "GL-SFT1200")
             TINY_ARCH="mipsle"
             log "SUCCESS" "Architecture: mipsle"
             ;;
