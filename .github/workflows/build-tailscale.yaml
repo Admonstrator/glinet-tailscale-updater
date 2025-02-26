@@ -21,21 +21,18 @@ jobs:
       - name: Get latest ${{ env.SOFTWARE_NAME }} tag
         id: tag
         run: |
-          latest_tag=$(
-            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases" \
-            | jq -r 'sort_by(.published_at) | last | .tag_name'
-          )
+          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/git/refs/tags" | jq -r '.[-1].ref | split("/")[-1]')
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
+
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
         id: tag_small
         run: |
-          latest_tag_small=$(
-            curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
-            | grep -oP '"tag_name": "\K(.*)(?=")' || echo ""
-          )
+          latest_tag_small=$(curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
+            | jq -r '.tag_name' || echo "")
           echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag_small"
+
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -83,6 +80,7 @@ jobs:
         with:
           name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
           path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+
   publish:
     runs-on: ubuntu-latest
     permissions:
@@ -138,21 +136,8 @@ jobs:
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
         uses: actions/checkout@v4
         with:
-          path: tools
           repository: ${{ env.REPO_SMALL }}
-      - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
-        run: |
-          cd tools
-          if git rev-parse --quiet --verify "refs/tags/${{ env.TAG }}"; then
-            echo "Tag already exists"
-            exit 0
-          else
-            echo "Tag does not exist, creating"
-            git tag "${{ env.TAG }}"
-            git push --tags
-          fi
       - name: Create Release
-        if: github.ref == 'refs/tags/${{ env.TAG }}'
         uses: ncipollo/release-action@v1
         with:
           name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
@@ -167,7 +152,7 @@ jobs:
           body: |
             Small ${{ env.SOFTWARE_NAME }} build ${{ env.TAG }}
 
-            For a complete changelog go to https://github.com/${{ env.REPO }}/releases/tag/${{ env.TAG }}
+            For a complete changelog go to https://github.com/${{ env.REPO }}/tags/${{ env.TAG }}
 
             This release was created by:
 
