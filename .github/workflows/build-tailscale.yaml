@@ -18,25 +18,24 @@ jobs:
       TAG: ${{ steps.tag.outputs.TAG }}
       TAG_SMALL: ${{ steps.tag_small.outputs.TAG_SMALL }}
     steps:
-      - name: Get latest stable ${{ env.SOFTWARE_NAME }} tag
+      - name: Get latest ${{ env.SOFTWARE_NAME }} tag
         id: tag
         run: |
-          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/git/refs/tags" \
-            | jq -r '.[].ref | split("/")[-1]' \
-            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V | tail -n 1)
-          
+          latest_tag=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases" \
+            | jq -r 'sort_by(.published_at) | last | .tag_name'
+          )
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
-          echo "Latest Stable ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
-
+          echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
         id: tag_small
         run: |
-          latest_tag_small=$(curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
-            | jq -r '.tag_name' || echo "")
+          latest_tag_small=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases/latest" \
+            | grep -oP '"tag_name": "\K(.*)(?=")' || echo ""
+          )
           echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag_small"
-
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -84,7 +83,6 @@ jobs:
         with:
           name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
           path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
-
   publish:
     runs-on: ubuntu-latest
     permissions:
@@ -131,11 +129,6 @@ jobs:
               "${PWD}/upx" --lzma --best --no-progress "$file"
             fi
           done
-                - name: Move artifacts
-      - run: |
-          mkdir -p release-files
-          mv artifacts/*/* release-files/
-          chmod +x release-files/*
       - name: Create checksums
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
@@ -145,8 +138,21 @@ jobs:
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
         uses: actions/checkout@v4
         with:
+          path: tools
           repository: ${{ env.REPO_SMALL }}
+      - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
+        run: |
+          cd tools
+          if git rev-parse --quiet --verify "refs/tags/${{ env.TAG }}"; then
+            echo "Tag already exists"
+            exit 0
+          else
+            echo "Tag does not exist, creating"
+            git tag "${{ env.TAG }}"
+            git push --tags
+          fi
       - name: Create Release
+        if: github.ref == 'refs/tags/${{ env.TAG }}'
         uses: ncipollo/release-action@v1
         with:
           name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
@@ -154,11 +160,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
-          artifacts: "release-files/*"
+          artifacts: |
+            ${{ env.FILE_NAME }}-*
+            checksums.txt
+            version.txt
           body: |
             Small ${{ env.SOFTWARE_NAME }} build ${{ env.TAG }}
 
-            For a complete changelog go to https://github.com/${{ env.REPO }}/tags/${{ env.TAG }}
+            For a complete changelog go to https://github.com/${{ env.REPO }}/releases/tag/${{ env.TAG }}
 
             This release was created by:
 
