@@ -18,12 +18,16 @@ jobs:
       TAG: ${{ steps.tag.outputs.TAG }}
       TAG_SMALL: ${{ steps.tag_small.outputs.TAG_SMALL }}
     steps:
-      - name: Get latest ${{ env.SOFTWARE_NAME }} tag
+      - name: Get latest stable ${{ env.SOFTWARE_NAME }} tag
         id: tag
         run: |
-          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/git/refs/tags" | jq -r '.[-1].ref | split("/")[-1]')
+          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/git/refs/tags" \
+            | jq -r '.[].ref | split("/")[-1]' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n 1)
+          
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
-          echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
+          echo "Latest Stable ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
 
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
         id: tag_small
