@@ -21,10 +21,10 @@ jobs:
       - name: Get latest ${{ env.SOFTWARE_NAME }} tag
         id: tag
         run: |
-          latest_tag=$(
-            curl -s "https://api.github.com/repos/${{ env.REPO }}/releases" \
-            | jq -r 'sort_by(.published_at) | last | .tag_name'
-          )
+          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/git/refs/tags" \
+            | jq -r '.[].ref | split("/")[-1]' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sort -V | tail -n 1)
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
