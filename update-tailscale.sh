@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2025.02.16.01"
+SCRIPT_VERSION="2025.05.28.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -105,6 +105,13 @@ preflight_check() {
         log "WARNING" "xz is not installed. We can install it for you later."
     else
         log "SUCCESS" "xz is installed."
+    fi
+    # Check if curl is present
+    if ! command -v curl >/dev/null; then
+        log "ERROR" "curl is not installed. Exiting"
+        PREFLIGHT=1
+    else
+        log "SUCCESS" "curl is installed."
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         log "ERROR" "Prerequisites are not met. Exiting"
