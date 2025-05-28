@@ -106,6 +106,13 @@ preflight_check() {
     else
         log "SUCCESS" "xz is installed."
     fi
+    # Check if curl is present
+    if ! command -v curl >/dev/null; then
+        log "ERROR" "curl is not installed. Exiting"
+        PREFLIGHT=1
+    else
+        log "SUCCESS" "curl is installed."
+    fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         log "ERROR" "Prerequisites are not met. Exiting"
         exit 1
