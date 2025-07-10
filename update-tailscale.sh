@@ -64,7 +64,10 @@ preflight_check() {
     else
         log "SUCCESS" "Firmware version: $FIRMWARE_VERSION"
     fi
-    if [ "$ARCH" = "aarch64" ]; then
+    if [ "$ARCH" = "x86_64" ]; then
+        TINY_ARCH="amd64"
+        log "SUCCESS" "Architecture: amd64"
+    elif [ "$ARCH" = "aarch64" ]; then
         TINY_ARCH="arm64"
         log "SUCCESS" "Architecture: arm64"
     elif [ "$ARCH" = "armv7l" ]; then
@@ -172,7 +175,9 @@ get_latest_tailscale_version() {
         TAILSCALE_VERSION_NEW="manually"
     else
         log "INFO" "Detecting latest tailscale version"
-        if [ "$ARCH" = "aarch64" ]; then
+        if [ "$ARCH" = "x86_64" ]; then
+            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
+        elif [ "$ARCH" = "aarch64" ]; then
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
         elif [ "$ARCH" = "armv7l" ]; then
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
@@ -253,7 +258,9 @@ compress_binaries() {
             tr -d '"v, '
     )"
 
-    if [ "$ARCH" = "aarch64" ]; then
+    if [ "$ARCH" = "x86_64" ]; then
+        UPX_ARCH="amd64"
+    elif [ "$ARCH" = "aarch64" ]; then
         UPX_ARCH="arm64"
     elif [ "$ARCH" = "armv7l" ]; then
         UPX_ARCH="arm"
