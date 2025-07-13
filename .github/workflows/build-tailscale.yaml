@@ -49,6 +49,7 @@ jobs:
         go-version: [stable]
         os: [linux]
         platform:
+          - amd64
           - arm
           - arm64
           - mips

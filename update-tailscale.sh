@@ -10,7 +10,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2024-01-24
-SCRIPT_VERSION="2025.05.28.01"
+SCRIPT_VERSION="2025.07.13.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -34,7 +34,7 @@ INFO='\033[0m' # No Color
 # Functions
 invoke_intro() {
     echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ GL.iNet router script by Admon 🦭 for the GL.iNet community            │"
+    echo "│ OpenWrt/GL.iNet Tailscale updater by Admon 🦭                          │"
     echo "| Version: $SCRIPT_VERSION                                                 |"
     echo "├────────────────────────────────────────────────────────────────────────┤"
     echo "│ WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!               │"
@@ -44,8 +44,8 @@ invoke_intro() {
     echo "│                                                                        │"
     echo "│ Prerequisites:                                                         │"
     echo "│ 1. At least 15 MB of free space.                                       │"
-    echo "│ 2. Firmware version 4 or higher.                                       │"
-    echo "│ 3. Architecture arm64, armv7 or mips.                                  │"
+    echo "│ 2. GL.iNet: Firmware version 4+ | OpenWrt: Any version                 │"
+    echo "│ 3. Architecture: arm64, armv7, x86_64, mips or mipsle                  │"
     echo "└────────────────────────────────────────────────────────────────────────┘"
 }
 
@@ -53,16 +53,25 @@ preflight_check() {
     AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
     AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
     ARCH=$(uname -m)
-    FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
+    # Check if this is a GL.iNet router or regular OpenWrt
+    if [ -f "/etc/glversion" ]; then
+        FIRMWARE_VERSION=$(cut -c1 </etc/glversion)
+        IS_GLINET=1
+    else
+        FIRMWARE_VERSION=0
+        IS_GLINET=0
+    fi
     PREFLIGHT=0
     TINY_ARCH=""
 
     log "INFO" "Checking if prerequisites are met"
-    if [ "${FIRMWARE_VERSION}" -lt 4 ]; then
-        log "ERROR" "This script only works on firmware version 4 or higher."
+    if [ "$IS_GLINET" -eq 1 ] && [ "${FIRMWARE_VERSION}" -lt 4 ]; then
+        log "ERROR" "This script only works on GL.iNet firmware version 4 or higher."
         PREFLIGHT=1
+    elif [ "$IS_GLINET" -eq 1 ]; then
+        log "SUCCESS" "GL.iNet firmware version: $FIRMWARE_VERSION"
     else
-        log "SUCCESS" "Firmware version: $FIRMWARE_VERSION"
+        log "SUCCESS" "OpenWrt system detected"
     fi
     if [ "$ARCH" = "aarch64" ]; then
         TINY_ARCH="arm64"
@@ -70,21 +79,29 @@ preflight_check() {
     elif [ "$ARCH" = "armv7l" ]; then
         TINY_ARCH="arm"
         log "SUCCESS" "Architecture: armv7"
+    elif [ "$ARCH" = "x86_64" ]; then
+        TINY_ARCH="amd64"
+        log "SUCCESS" "Architecture: x86_64"
     elif [ "$ARCH" = "mips" ]; then
     # Check for specific models that use mipsle architecture
-    MODEL=$(grep 'machine' /proc/cpuinfo | awk -F ': ' '{print $2}')
-    case "$MODEL" in
-        "GL.iNet GL-MT1300" | "GL-MT300N-V2" | "GL-SFT1200")
-            TINY_ARCH="mipsle"
-            log "SUCCESS" "Architecture: mipsle"
-            ;;
-        *)
-            TINY_ARCH="mips"
-            log "SUCCESS" "Architecture: mips"
-            ;;
-    esac
+    if [ "$IS_GLINET" -eq 1 ]; then
+        MODEL=$(grep 'machine' /proc/cpuinfo | awk -F ': ' '{print $2}')
+        case "$MODEL" in
+            "GL.iNet GL-MT1300" | "GL-MT300N-V2" | "GL-SFT1200")
+                TINY_ARCH="mipsle"
+                log "SUCCESS" "Architecture: mipsle"
+                ;;
+            *)
+                TINY_ARCH="mips"
+                log "SUCCESS" "Architecture: mips"
+                ;;
+        esac
+    else
+        TINY_ARCH="mips"
+        log "SUCCESS" "Architecture: mips"
+    fi
     else    
-        log "ERROR" "This script only works on arm64, armv7, mips and mipsle"
+        log "ERROR" "This script only works on arm64, armv7, x86_64, mips and mipsle"
         PREFLIGHT=1
     fi
     if [ "$AVAILABLE_SPACE" -lt 15 ]; then
@@ -176,6 +193,8 @@ get_latest_tailscale_version() {
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
         elif [ "$ARCH" = "armv7l" ]; then
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+        elif [ "$ARCH" = "x86_64" ]; then
+            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
         elif [ "$ARCH" = "mips" ]; then
             TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
         fi
@@ -257,6 +276,8 @@ compress_binaries() {
         UPX_ARCH="arm64"
     elif [ "$ARCH" = "armv7l" ]; then
         UPX_ARCH="arm"
+    elif [ "$ARCH" = "x86_64" ]; then
+        UPX_ARCH="amd64"
     elif [ "$ARCH" = "mips" ]; then
         UPX_ARCH="$ARCH"
     fi
@@ -348,44 +369,46 @@ install_tiny_tailscale() {
 }
 
 upgrade_persistance() {
-    echo "┌────────────────────────────────────────────────────────────────────────────────┐"
-    echo "| The update was successful. Do you want to make the installation permanent?     |"
-    echo "| This will make your tailscale installation persistent over firmware upgrades.  |"
-    echo "| Please note that this is not officially supported by GL.iNet.                  |"
-    echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
-    echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
-    echo "└────────────────────────────────────────────────────────────────────────────────┘"
-    echo -e "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)"
-    if [ "$FORCE" -eq 1 ]; then
-        log "WARNING" "--force flag is used. Continuing"
-        answer_create_persistance="y"
+    if [ "$IS_GLINET" -eq 1 ]; then
+        echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+        echo "| The update was successful. Do you want to make the installation permanent?     |"
+        echo "| This will make your tailscale installation persistent over firmware upgrades.  |"
+        echo "| Please note that this is not officially supported by GL.iNet.                  |"
+        echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
+        echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
+        echo "└────────────────────────────────────────────────────────────────────────────────┘"
+        echo -e "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)"
+        if [ "$FORCE" -eq 1 ]; then
+            log "WARNING" "--force flag is used. Continuing"
+            answer_create_persistance="y"
+        else
+            read -r answer_create_persistance
+        fi
+        if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
+            log "INFO" "Making installation permanent"
+            log "INFO" "Modifying /etc/sysupgrade.conf"
+            if grep -q "/root/tailscale_config_backup/" /etc/sysupgrade.conf; then
+                sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
+            fi
+            if ! grep -q "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
+                echo "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
+            fi
+            if ! grep -q "/usr/sbin/tailscale" /etc/sysupgrade.conf; then
+                echo "/usr/sbin/tailscale" >>/etc/sysupgrade.conf
+            fi
+            if ! grep -q "/usr/sbin/tailscaled" /etc/sysupgrade.conf; then
+                echo "/usr/sbin/tailscaled" >>/etc/sysupgrade.conf
+            fi
+            if ! grep -q "/etc/config/tailscale" /etc/sysupgrade.conf; then
+                echo "/etc/config/tailscale" >>/etc/sysupgrade.conf
+            fi
+            if ! grep -q "/usr/bin/gl_tailscale" /etc/sysupgrade.conf; then
+                echo "/usr/bin/gl_tailscale" >>/etc/sysupgrade.conf
+            fi
+        fi
     else
-        read -r answer_create_persistance
-    fi
-    if [ "$answer_create_persistance" != "${answer_create_persistance#[Yy]}" ]; then
-        log "INFO" "Making installation permanent"
-        log "INFO" "Modifying /etc/sysupgrade.conf"
-        if grep -q "/root/tailscale_config_backup/" /etc/sysupgrade.conf; then
-            sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
-        fi
-        if ! grep -q "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" /etc/sysupgrade.conf; then
-            echo "/root/tailscale_config_backup/$TIMESTAMP.tar.gz" >>/etc/sysupgrade.conf
-        fi
-        if ! grep -q "/usr/sbin/tailscale" /etc/sysupgrade.conf; then
-            echo "/usr/sbin/tailscale" >>/etc/sysupgrade.conf
-        fi
-        if ! grep -q "/usr/sbin/tailscaled" /etc/sysupgrade.conf; then
-            echo "/usr/sbin/tailscaled" >>/etc/sysupgrade.conf
-        fi
-        if ! grep -q "/etc/config/tailscale" /etc/sysupgrade.conf; then
-            echo "/etc/config/tailscale" >>/etc/sysupgrade.conf
-        fi
-        if ! grep -q "/etc/config/tailscale" /etc/sysupgrade.conf; then
-            echo "/etc/config/tailscale" >>/etc/sysupgrade.conf
-        fi
-        if ! grep -q "/usr/bin/gl_tailscale" /etc/sysupgrade.conf; then
-            echo "/usr/bin/gl_tailscale" >>/etc/sysupgrade.conf
-        fi
+        log "INFO" "OpenWrt detected - installation is already persistent"
+        log "INFO" "No additional steps needed for persistence on OpenWrt"
     fi
 }
 
@@ -423,10 +446,11 @@ restore() {
         else
             log "ERROR" "tailscaled binary not found in /rom. Exiting"
         fi
-        if [ -f "/rom/usr/bin/gl_tailscale" ]; then
+        if [ "$IS_GLINET" -eq 1 ] && [ -f "/rom/usr/bin/gl_tailscale" ]; then
             cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
-        else
-            log "ERROR" "gl_tailscale script not found in /rom. Exiting"
+            log "SUCCESS" "gl_tailscale script restored"
+        elif [ "$IS_GLINET" -eq 1 ]; then
+            log "WARNING" "gl_tailscale script not found in /rom"
         fi
         log "INFO" "Restarting tailscale Might or might not work"
         /etc/init.d/tailscale start 2>/dev/null
@@ -483,10 +507,14 @@ invoke_update() {
 }
 
 invoke_modify_script() {
-    log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
-    # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false
-    sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|' /usr/bin/gl_tailscale
-    log "SUCCESS" "gl_tailscale script modified successfully"
+    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
+        log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
+        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false
+        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|' /usr/bin/gl_tailscale
+        log "SUCCESS" "gl_tailscale script modified successfully"
+    else
+        log "INFO" "Not a GL.iNet router or gl_tailscale script not found, skipping GL-specific modifications"
+    fi
 }
 
 restart_tailscale() {
