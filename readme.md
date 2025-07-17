@@ -4,7 +4,7 @@
 
 This script is designed to update Tailscale on GL.iNet routers.
 
-It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on the MT-6000 (Flint2) with firmware 4.6.0.
+It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on nearly all GL.iNet routers with firmware 4.x. Even the neweset model, the [GL.iNet Flint 3](https://www.gl-inet.com/products/gl-be9300/), is supported.
 
 ## Requirements
 
