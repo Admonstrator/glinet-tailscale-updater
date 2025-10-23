@@ -1,96 +1,195 @@
-# Tailscale Update Script for GL.iNet Routers
+<div align="center">
 
-<img src="images/screen.jpg" width="400" align="right" alt="Profile Picture" style="border-radius: 10%;">
+# 🦭 Tailscale Updater for GL.iNet Routers
 
-This script is designed to update Tailscale on GL.iNet routers.
+[![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
+[![Script Version](https://img.shields.io/badge/script-2025.10.23.01-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
-It was created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community and tested on nearly all GL.iNet routers with firmware 4.x. Even the newest model, the [GL.iNet Flint 3](https://www.gl-inet.com/products/gl-be9300/), is supported.
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/admon)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/admon)
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/aaronviehl)
 
-## Requirements
+<img src="images/screen.jpg" width="600" alt="Tailscale Updater Screenshot" style="border-radius: 10px; margin: 20px 0;">
 
-- GL.iNet router with firmware 4.x
-- Supported architecture: arm64, armv7, mips
-- Free space: at least 15 MB
-- xz installed if you want to use UPX compression, if it's not installed, the script will install it for you
+**Keep Tailscale up-to-date on your GL.iNet router with ease!**
 
-## Arguments
+Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
+Tested on nearly all GL.iNet routers with firmware 4.x
 
-The `update-tailscale.sh` script supports the following arguments:
+[Quick Start](#-quick-start) • [Documentation](#-arguments) • [Support](#-feedback) • [Contributing](#-contributors)
 
-- `--ignore-free-space`: Ignores the free space check. Useful for devices with low free space. Use with caution!
+</div>
 
-- `--force`: Skips all confirmation prompts and makes the install permanent. Useful for unattended installations. Use with caution!
+---
 
-- `--restore`: Restores the original files (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`) from the firmware. Does not restore configuration files and may lead to a broken installation. Use with caution!
+## ✨ Features
 
-- `--no-upx`: Skips the UPX compression. The tailscale binaries will be larger but the update will be faster.
+- 🚀 **Automatic Updates** - Fetches and installs the latest Tailscale version
+- 📦 **Tiny Version Support** - Uses optimized tiny binaries to save space
+- 🗜️ **UPX Compression** - Further reduces binary size when needed
+- 🎯 **Version Selection** - Install specific Tailscale versions
+- 🔧 **Stateful Filtering** - Auto-configures for exit node compatibility
+- 🛡️ **Safe Restore** - Restore original firmware binaries if needed
+- ⚡ **Flexible Options** - Multiple flags for customized installations
 
-- `--no-download`: Skips the download of the tailscale binaries. Useful if you have already downloaded the binaries and want to use them. Store the archive as `/tmp/tailscale.tar.gz`.
+---
 
-- `--no-tiny`: Won't use the tiny version of the tailscale binaries. Useful if you want to use the full version of the tailscale binaries. The tiny version is recommended for GL.iNet routers.
+## 📋 Requirements
 
-- `--select-release`: Allows you to select a specific release version from the repository. The script will display all available releases and let you choose one. **Note:** Downgrading is not officially supported by Tailscale and could lead to issues.
+| Requirement | Details |
+|------------|---------|
+| **Router** | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
+| **Architecture** | arm64, armv7, mips, mipsle, or x86_64 |
+| **Free Space** | At least 15 MB (can be bypassed with `--ignore-free-space`) |
+| **Dependencies** | `xz` (auto-installed if missing and UPX compression is used) |
 
-- `--help`: Displays the help message with information about the available arguments.
+---
 
-## Quick start
+## 🚀 Quick Start
 
-You can run it without cloning the repository by using the following command:
+Run the updater without cloning the repository:
 
-```shell
+```bash
 wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh
 ```
 
-**Please do not run this script as a cron job! It is recommended to run it manually!**
+> ⚠️ **Important:** Do not run this script as a cron job! Manual execution is recommended.
 
-## Selecting a specific version
+---
 
-If you need to install a specific version of Tailscale (for example, if the latest version doesn't work with your modem), you can use the `--select-release` option:
+## 🎛️ Arguments
 
-```shell
+The `update-tailscale.sh` script supports the following arguments:
+
+| Argument | Description |
+|----------|-------------|
+| `--ignore-free-space` | Bypasses the free space check. Use with caution on low-storage devices! |
+| `--force` | Skips all confirmation prompts and makes installation permanent. Ideal for unattended installations. |
+| `--restore` | Restores original firmware binaries (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`). ⚠️ Does not restore config files! |
+| `--no-upx` | Skips UPX compression. Binaries will be larger but installation is faster. |
+| `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
+| `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
+| `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
+| `--help` | Displays help message with all available arguments. |
+
+---
+
+## 📚 Usage Examples
+
+### Select a Specific Version
+
+Install a specific Tailscale version (useful if the latest version has issues):
+
+```bash
 wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh --select-release
 ```
 
-The script will display a list of available releases and allow you to select one by entering its corresponding number. **Important:** Downgrading Tailscale is not officially supported and may lead to unexpected behavior or issues.
+The script will display available releases for you to choose from.
 
-## Force update
+> **⚠️ Warning:** Downgrading Tailscale is not officially supported and may cause unexpected behavior.
 
-By using the --force option, the script will skip all confirmation prompts. It will make the install permanent. This is useful for unattended installations. In combination with --ignore-free-space, it will also skip the free space check. Please use with caution!
+### Force Update (Unattended Installation)
 
-## Running on devices with low free space
+Skip all prompts and make the installation permanent:
 
-You can use --ignore-free-space to ignore the free space check. This is useful for devices with low free space. Please use with caution!
+```bash
+sh update-tailscale.sh --force
+```
 
-## Tailscale stateful filtering
+Combine with `--ignore-free-space` for devices with limited storage:
 
-The script will add the `--stateful-filtering=false` option to the gl_tailscale script. This is necessary for the tailscaled service to work correctly on GL.iNet routers, if exit nodes are used. The modification is done automatically and you don't have to do anything. It will be permanent and will survive a firmware upgrade.
+```bash
+sh update-tailscale.sh --force --ignore-free-space
+```
 
-## Tiny-Tailscale
+### Restore Original Binaries
 
-By default, the script will use the tiny version of the tailscale binaries. They are way smaller and will save plenty of space on your device. If you want to use the full version of the tailscale binaries, you can use the `--no-tiny` option. There are no other differences between the tiny and the full version of the tailscale binaries. UPX compression will be skipped while using the tiny version.
+Revert to the original firmware binaries:
 
-## UPX compression
+```bash
+sh update-tailscale.sh --restore
+```
 
-The script uses UPX to compress the tailscale binaries. You will be asked if you want to use UPX compression. It is recommended to use UPX compression, as it will reduce the size of the tailscale binaries. If you choose not to use UPX compression, the script will still work, but the tailscale binaries will be larger. UPX compression will be skipped while using the tiny version of the tailscale binaries.
+> **⚠️ Caution:** This does not restore configuration files and may result in a broken installation.
 
-## Restoring the original files
+---
 
-You can use `--restore` to restore the original files. This will replace the `/usr/sbin/tailscaled` and `/usr/sbin/tailscale` files with the original files coming from the firmware. It will not restore your configuration files and might lead to a broken installation. Please use with caution!
+## 🔍 Key Features Explained
 
-## Feedback
+### 🎯 Tailscale Stateful Filtering
 
-Feel free to provide feedback in the [GL.iNet forum](https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582).
+The script automatically adds `--stateful-filtering=false` to the `gl_tailscale` script. This is required for proper exit node functionality on GL.iNet routers. The modification is:
+- ✅ Applied automatically
+- ✅ Permanent (survives firmware upgrades)
+- ✅ No manual configuration needed
 
-## Disclaimer
+### 📦 Tiny-Tailscale
 
-This script is provided as is and without any warranty. Use it at your own risk.
+By default, the script uses optimized tiny binaries that:
+- 🔹 Significantly reduce storage footprint
+- 🔹 Maintain full functionality
+- 🔹 Skip UPX compression (already optimized)
+- 🔹 Are recommended for all GL.iNet routers
 
-**It may break your router, your computer, your network or anything else. It may even burn down your house.**
+Use `--no-tiny` if you need the full-sized binaries.
+
+### 🗜️ UPX Compression
+
+For standard (non-tiny) binaries, UPX compression:
+- 🔹 Substantially reduces binary size
+- 🔹 Is recommended for storage-limited devices
+- 🔹 Requires `xz` (auto-installed if missing)
+- 🔹 Can be disabled with `--no-upx`
+
+---
+
+## 💬 Feedback
+
+Have questions or feedback? Join the discussion in the [GL.iNet forum](https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582).
+
+---
+
+## ⚠️ Disclaimer
+
+This script is provided **as-is** without any warranty. Use it at your own risk.
+
+**It may potentially:**
+- 🔥 Break your router, computer, or network
+- 🔥 Cause unexpected system behavior
+- 🔥 Even burn down your house (okay, probably not, but you get the idea)
 
 **You have been warned!**
 
-## Contributers
+---
 
-Thanks to [lwbt](https://github.com/lwbt) for the UPX compression & the tiny-tailscale feature!
+## 👥 Contributors
 
-Thanks to [Aubermean](https://github.com/Aubermean) for the clearification of the `--stateful-filtering=false` ([#1](https://github.com/Admonstrator/glinet-tailscale-updater/issues/1)) option!
+Special thanks to:
+
+- **[lwbt](https://github.com/lwbt)** - UPX compression & tiny-tailscale feature
+- **[Aubermean](https://github.com/Aubermean)** - Clarification of `--stateful-filtering=false` ([#1](https://github.com/Admonstrator/glinet-tailscale-updater/issues/1))
+
+Want to contribute? Pull requests are welcome!
+
+---
+
+## 💖 Support the Project
+
+If you find this script helpful, consider supporting its development:
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor%20on-GitHub-EA4AAA?style=for-the-badge&logo=github)](https://github.com/sponsors/admonstrator)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/admon)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/admon)
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/aaronviehl)
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [Admon](https://github.com/Admonstrator)**
+
+[⬆ Back to Top](#-tailscale-updater-for-glinet-routers)
+
+</div>
