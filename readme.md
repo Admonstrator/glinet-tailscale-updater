@@ -11,7 +11,7 @@
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/admon)
 [![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/aaronviehl)
 
-<img src="images/screen.jpg" width="600" alt="Tailscale Updater Screenshot" style="border-radius: 10px; margin: 20px 0;">
+<img src="images/readme.webp" width="600" alt="Tailscale Updater Screenshot" style="border-radius: 10px; margin: 20px 0;">
 
 **Keep Tailscale up-to-date on your GL.iNet router with ease!**
 
