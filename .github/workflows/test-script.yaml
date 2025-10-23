@@ -64,7 +64,7 @@ jobs:
 
       - name: Test invalid flag
         run: |
-          output=$(sh update-tailscale.sh --invalid-flag 2>&1)
+          output=$(sh update-tailscale.sh --invalid-flag 2>&1 || true)
           echo "$output" | grep -q "Unknown argument" || exit 1
           echo "✓ Invalid flag detection works"
 
