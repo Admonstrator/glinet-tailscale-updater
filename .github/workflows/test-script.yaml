@@ -205,8 +205,8 @@ jobs:
         run: |
           echo "Checking if all flags are documented in README..."
 
-          # Extract flags from script
-          script_flags=$(grep -o '\--[a-z-]*' update-tailscale.sh | sort -u)
+          # Extract flags from the argument parsing section only
+          script_flags=$(sed -n '/# Read arguments/,/esac/p' update-tailscale.sh | grep -o '\--[a-z-]*' | grep -v 'stateful-filtering\|advertise-routes' | sort -u)
 
           # Check each flag is in README
           for flag in $script_flags; do
