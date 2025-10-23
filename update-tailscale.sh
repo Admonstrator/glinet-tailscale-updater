@@ -1,22 +1,14 @@
 #!/bin/sh
 # shellcheck shell=dash
-# NOTE: 'echo $SHELL' reports '/bin/ash' on the routers, see:
-# - https://en.wikipedia.org/wiki/Almquist_shell#Embedded_Linux
-# - https://github.com/koalaman/shellcheck/issues/1841
-#
-#
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.23.01"
+SCRIPT_VERSION="2025.10.23.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
-#
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help] [--select-release]
-# Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
 IGNORE_FREE_SPACE=0
@@ -27,6 +19,8 @@ NO_UPX=0
 NO_DOWNLOAD=0
 NO_TINY=0
 SELECT_RELEASE=0
+SHOW_LOG=0
+ASCII_MODE=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -34,20 +28,34 @@ INFO='\033[0m' # No Color
 
 # Functions
 invoke_intro() {
-    echo "┌────────────────────────────────────────────────────────────────────────┐"
-    echo "│ OpenWrt/GL.iNet Tailscale updater by Admon 🦭                          │"
-    echo "| Version: $SCRIPT_VERSION                                                 |"
-    echo "├────────────────────────────────────────────────────────────────────────┤"
-    echo "│ WARNING: THIS SCRIPT MIGHT POTENTIALLY HARM YOUR ROUTER!               │"
-    echo "│ It's only recommended to use this script if you know what you're doing.│"
-    echo "├────────────────────────────────────────────────────────────────────────┤"
-    echo "│ This script will update Tailscale on your router.                      │"
-    echo "│                                                                        │"
-    echo "│ Prerequisites:                                                         │"
-    echo "│ 1. At least 15 MB of free space.                                       │"
-    echo "│ 2. GL.iNet: Firmware version 4+ | OpenWrt: Any version                 │"
-    echo "│ 3. Architecture: arm64, armv7, x86_64, mips or mipsle                  │"
-    echo "└────────────────────────────────────────────────────────────────────────┘"
+    echo "============================================================"
+    echo ""
+    echo "  OpenWrt/GL.iNet Tailscale Updater by Admon"
+    echo "  Version: $SCRIPT_VERSION"
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  WARNING: THIS SCRIPT MIGHT HARM YOUR ROUTER!"
+    echo "  Use at your own risk. Only proceed if you know"
+    echo "  what you're doing."
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  This script will update Tailscale on your router."
+    echo ""
+    echo "  Prerequisites:"
+    echo "    - At least 15 MB of free space"
+    echo "    - GL.iNet: Firmware 4+ | OpenWrt: Any version"
+    echo "    - arm64, armv7, x86_64, mips or mipsle"
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  Support this project:"
+    echo "    - GitHub: github.com/sponsors/admonstrator"
+    echo "    - Ko-fi: ko-fi.com/admon"
+    echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
+    echo ""
+    echo "============================================================"
 }
 
 preflight_check() {
@@ -160,7 +168,7 @@ get_latest_tailscale_version_tiny() {
         exit 1
     fi
     TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-    if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+    if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ]; then
         log "SUCCESS" "You already have the latest version."
         log "INFO" "If you encounter issues while using the tiny version, please use the normal version."
         log "INFO" "You can do this by using the --no-tiny flag."
@@ -204,7 +212,7 @@ get_latest_tailscale_version() {
             exit 1
         fi
         TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-        if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+        if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ]; then
             log "SUCCESS" "You already have the latest version."
             exit 0
         fi
@@ -475,7 +483,7 @@ invoke_outro() {
 }
 
 invoke_help() {
-    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93m--ignore-free-space\033[0m] [\033[93m--force\033[0m] [\033[93m--restore\033[0m] [\033[93m--no-upx\033[0m] [\033[93m--select-release\033[0m] [\033[93m--help\033[0m]"
+    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93mOPTIONS\033[0m]"
     echo -e "\033[1mOptions:\033[0m"
     echo -e "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m"
     echo -e "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m"
@@ -484,6 +492,8 @@ invoke_help() {
     echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
     echo -e "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m"
     echo -e "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m"
+    echo -e "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m"
+    echo -e "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m"
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
@@ -529,27 +539,49 @@ log() {
     local message=$2
     local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     local color=$INFO # Default to no color
+    local symbol=""
 
-    # Assign color based on level
+    # Assign color and symbol based on level
     case "$level" in
     ERROR)
-        level="x"
         color=$RED
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[X] "
+        else
+            symbol="❌ "
+        fi
         ;;
     WARNING)
-        level="!"
         color=$YELLOW
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[!] "
+        else
+            symbol="⚠️  "
+        fi
         ;;
     SUCCESS)
-        level="✓"
         color=$GREEN
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[OK] "
+        else
+            symbol="✅ "
+        fi
         ;;
     INFO)
-        level="→"
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[->] "
+        else
+            symbol="ℹ️  "
+        fi
         ;;
     esac
 
-    echo -e "${color}[$timestamp] [$level] $message${INFO}"
+    # Build output with or without timestamp
+    if [ "$SHOW_LOG" -eq 1 ]; then
+        echo -e "${color}[$timestamp] $symbol$message${INFO}"
+    else
+        echo -e "${color}$symbol$message${INFO}"
+    fi
 }
 
 # Function to choose a GitHub release label
@@ -621,6 +653,12 @@ for arg in "$@"; do
         ;;
     --select-release)
         SELECT_RELEASE=1
+        ;;
+    --log)
+        SHOW_LOG=1
+        ;;
+    --ascii)
+        ASCII_MODE=1
         ;;
     *)
         echo "Unknown argument: $arg"

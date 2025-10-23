@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.23.01-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.23.02-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
@@ -72,6 +72,8 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
 | `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
 | `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
+| `--log` | Shows timestamps in all log messages. Useful for debugging and tracking execution time. |
+| `--ascii` | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals. |
 | `--help` | Displays help message with all available arguments. |
 
 ---
@@ -113,6 +115,26 @@ sh update-tailscale.sh --restore
 ```
 
 > **⚠️ Caution:** This does not restore configuration files and may result in a broken installation.
+
+### Logging and Output Options
+
+Enable timestamps for debugging or tracking execution time:
+
+```bash
+sh update-tailscale.sh --log
+```
+
+Use ASCII characters instead of emojis for compatibility with older terminals:
+
+```bash
+sh update-tailscale.sh --ascii
+```
+
+Combine both options:
+
+```bash
+sh update-tailscale.sh --log --ascii
+```
 
 ---
 

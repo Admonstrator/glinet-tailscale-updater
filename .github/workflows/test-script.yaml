@@ -1,0 +1,285 @@
+name: Test Update Script
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'update-tailscale.sh'
+      - '.github/workflows/test-script.yaml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'update-tailscale.sh'
+      - '.github/workflows/test-script.yaml'
+
+jobs:
+  shellcheck:
+    name: ShellCheck Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          format: gcc
+          severity: warning
+          additional_files: 'update-tailscale.sh'
+
+  syntax-check:
+    name: Syntax Validation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shell: [dash, bash, sh]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install shells
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dash
+
+      - name: Check syntax with ${{ matrix.shell }}
+        run: |
+          ${{ matrix.shell }} -n update-tailscale.sh
+
+  flag-tests:
+    name: Flag Parsing Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test --help flag
+        run: |
+          output=$(sh update-tailscale.sh --help 2>&1)
+          echo "$output" | grep -q "Usage:" || exit 1
+          echo "$output" | grep -q "\-\-log" || exit 1
+          echo "$output" | grep -q "\-\-ascii" || exit 1
+          echo "✓ --help flag works correctly"
+
+      - name: Test invalid flag
+        run: |
+          output=$(sh update-tailscale.sh --invalid-flag 2>&1)
+          echo "$output" | grep -q "Unknown argument" || exit 1
+          echo "✓ Invalid flag detection works"
+
+      - name: Test version output
+        run: |
+          version=$(grep 'SCRIPT_VERSION=' update-tailscale.sh | head -1 | cut -d'"' -f2)
+          echo "Script version: $version"
+          [[ "$version" =~ ^[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]{2}$ ]] || exit 1
+          echo "✓ Version format is correct"
+
+  posix-compliance:
+    name: POSIX Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for bash-specific syntax
+        run: |
+          echo "Checking for common bashisms..."
+
+          # Check for == in test conditions (should be =)
+          if grep -n '\[ .*==.*\]' update-tailscale.sh; then
+            echo "❌ Found == in test condition (use = for POSIX compliance)"
+            exit 1
+          fi
+
+          # Check for [[ ]] (bash-specific)
+          if grep -n '\[\[' update-tailscale.sh; then
+            echo "❌ Found [[ ]] (use [ ] for POSIX compliance)"
+            exit 1
+          fi
+
+          # Check for $( ) command substitution (POSIX allows this)
+          echo "✓ Command substitution syntax is acceptable"
+
+          echo "✓ No bashisms detected"
+
+  log-function-tests:
+    name: Log Function Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test log function with ASCII mode
+        run: |
+          # Create a test script that sources the functions
+          cat > test_log.sh << 'EOF'
+          #!/bin/sh
+          ASCII_MODE=1
+          SHOW_LOG=0
+          RED='\033[0;31m'
+          GREEN='\033[0;32m'
+          YELLOW='\033[0;33m'
+          INFO='\033[0m'
+
+          # Source the log function from the main script
+          eval "$(sed -n '/^log() {/,/^}/p' update-tailscale.sh)"
+
+          # Test ASCII mode
+          output=$(log "SUCCESS" "Test message")
+          echo "$output" | grep -q "\[OK\]" || exit 1
+          echo "✓ ASCII mode SUCCESS works"
+
+          output=$(log "ERROR" "Test message")
+          echo "$output" | grep -q "\[X\]" || exit 1
+          echo "✓ ASCII mode ERROR works"
+
+          output=$(log "WARNING" "Test message")
+          echo "$output" | grep -q "\[!\]" || exit 1
+          echo "✓ ASCII mode WARNING works"
+
+          output=$(log "INFO" "Test message")
+          echo "$output" | grep -q "\[->\]" || exit 1
+          echo "✓ ASCII mode INFO works"
+          EOF
+
+          chmod +x test_log.sh
+          sh test_log.sh
+
+      - name: Test log function with emoji mode
+        run: |
+          cat > test_emoji.sh << 'EOF'
+          #!/bin/sh
+          ASCII_MODE=0
+          SHOW_LOG=0
+          RED='\033[0;31m'
+          GREEN='\033[0;32m'
+          YELLOW='\033[0;33m'
+          INFO='\033[0m'
+
+          eval "$(sed -n '/^log() {/,/^}/p' update-tailscale.sh)"
+
+          # Test emoji mode
+          output=$(log "SUCCESS" "Test message")
+          echo "$output" | grep -q "✅" || exit 1
+          echo "✓ Emoji mode SUCCESS works"
+
+          output=$(log "ERROR" "Test message")
+          echo "$output" | grep -q "❌" || exit 1
+          echo "✓ Emoji mode ERROR works"
+          EOF
+
+          chmod +x test_emoji.sh
+          sh test_emoji.sh
+
+      - name: Test timestamp functionality
+        run: |
+          cat > test_timestamp.sh << 'EOF'
+          #!/bin/sh
+          ASCII_MODE=0
+          SHOW_LOG=1
+          RED='\033[0;31m'
+          GREEN='\033[0;32m'
+          YELLOW='\033[0;33m'
+          INFO='\033[0m'
+
+          eval "$(sed -n '/^log() {/,/^}/p' update-tailscale.sh)"
+
+          # Test with timestamps
+          output=$(log "INFO" "Test message")
+          echo "$output" | grep -q "\[20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" || exit 1
+          echo "✓ Timestamp format works"
+          EOF
+
+          chmod +x test_timestamp.sh
+          sh test_timestamp.sh
+
+  readme-consistency:
+    name: README Consistency Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if new flags are documented
+        run: |
+          echo "Checking if all flags are documented in README..."
+
+          # Extract flags from the argument parsing section only
+          script_flags=$(sed -n '/# Read arguments/,/esac/p' update-tailscale.sh | grep -o '\--[a-z-]*' | grep -v 'stateful-filtering\|advertise-routes' | sort -u)
+
+          # Check each flag is in README
+          for flag in $script_flags; do
+            if ! grep -q "$flag" readme.md; then
+              echo "❌ Flag $flag not found in README"
+              exit 1
+            fi
+          done
+
+          echo "✓ All flags are documented in README"
+
+      - name: Check version badge consistency
+        run: |
+          script_version=$(grep 'SCRIPT_VERSION=' update-tailscale.sh | head -1 | cut -d'"' -f2)
+          readme_version=$(grep 'badge/script-' readme.md | grep -o '[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}' | head -1)
+
+          if [ "$script_version" != "$readme_version" ]; then
+            echo "❌ Version mismatch:"
+            echo "   Script: $script_version"
+            echo "   README: $readme_version"
+            exit 1
+          fi
+
+          echo "✓ Version badge is consistent ($script_version)"
+
+  integration-check:
+    name: Integration Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify all functions are defined
+        run: |
+          echo "Checking for undefined function calls..."
+
+          # List of expected functions
+          functions=(
+            "invoke_intro"
+            "preflight_check"
+            "backup"
+            "get_latest_tailscale_version_tiny"
+            "get_latest_tailscale_version"
+            "compress_binaries"
+            "install_tailscale"
+            "install_tiny_tailscale"
+            "upgrade_persistance"
+            "restore"
+            "invoke_outro"
+            "invoke_help"
+            "invoke_update"
+            "invoke_modify_script"
+            "restart_tailscale"
+            "log"
+            "choose_release_label"
+          )
+
+          for func in "${functions[@]}"; do
+            if ! grep -q "^${func}()" update-tailscale.sh; then
+              echo "❌ Function $func not found"
+              exit 1
+            fi
+          done
+
+          echo "✓ All expected functions are defined"
+
+      - name: Check for hardcoded values
+        run: |
+          echo "Checking for potential issues..."
+
+          # Check if URLs are using variables
+          if grep -n 'github.com/Admonstrator/glinet-tailscale-updater' update-tailscale.sh | grep -v 'TAILSCALE_TINY_URL\|UPDATE_URL\|Thread:'; then
+            echo "⚠️  Found hardcoded GitHub URLs (consider using variables)"
+          fi
+
+          echo "✓ Check complete"
