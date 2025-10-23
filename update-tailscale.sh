@@ -9,13 +9,13 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Date: 2024-01-24
-SCRIPT_VERSION="2025.07.13.01"
+# Date: 2025-10-23
+SCRIPT_VERSION="2025.10.23.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help] [--select-release]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
@@ -26,6 +26,7 @@ UPX_ERROR=0
 NO_UPX=0
 NO_DOWNLOAD=0
 NO_TINY=0
+SELECT_RELEASE=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -474,7 +475,7 @@ invoke_outro() {
 }
 
 invoke_help() {
-    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93m--ignore-free-space\033[0m] [\033[93m--force\033[0m] [\033[93m--restore\033[0m] [\033[93m--no-upx\033[0m] [\033[93m--help\033[0m]"
+    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93m--ignore-free-space\033[0m] [\033[93m--force\033[0m] [\033[93m--restore\033[0m] [\033[93m--no-upx\033[0m] [\033[93m--select-release\033[0m] [\033[93m--help\033[0m]"
     echo -e "\033[1mOptions:\033[0m"
     echo -e "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m"
     echo -e "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m"
@@ -482,6 +483,7 @@ invoke_help() {
     echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
     echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
     echo -e "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m"
+    echo -e "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m"
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
@@ -550,6 +552,48 @@ log() {
     echo -e "${color}[$timestamp] [$level] $message${INFO}"
 }
 
+# Function to choose a GitHub release label
+choose_release_label() {
+    log "INFO" "Fetching available release labels..."
+    available_labels=$(curl -s "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//g')
+    
+    if [ -z "$available_labels" ]; then
+        log "ERROR" "Could not retrieve release labels. Please check your internet connection."
+        exit 1
+    fi
+
+    log "INFO" "Available release labels:"
+    
+    # Display labels with numbered options
+    i=1
+    for label in $available_labels; do
+        echo -e "\033[93m $i) $label\033[0m"
+        i=$((i + 1))
+    done
+    
+    echo -e "\033[93m Select a release by entering the corresponding number: \033[0m"
+    read -r label_choice
+    selected_label=$(echo "$available_labels" | sed -n "${label_choice}p")
+    
+    if [ -z "$selected_label" ]; then
+        log "ERROR" "Invalid choice. Exiting..."
+        exit 1
+    else
+        log "INFO" "You selected release label: $selected_label"
+        TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/$selected_label"
+        log "WARNING" "Downgrading is not officially supported by Tailscale!"
+        log "WARNING" "It could lead to issues and unexpected behavior!"
+        log "WARNING" "Do you want to continue? (y/N)"
+        read -r answer
+        if [ "$answer" != "${answer#[Yy]}" ]; then
+            log "INFO" "Ok, continuing ..."
+        else
+            log "ERROR" "Ok, see you next time!"
+            exit 0
+        fi
+    fi
+}
+
 # Read arguments
 for arg in "$@"; do
     case $arg in
@@ -575,6 +619,9 @@ for arg in "$@"; do
     --no-tiny)
         NO_TINY=1
         ;;
+    --select-release)
+        SELECT_RELEASE=1
+        ;;
     *)
         echo "Unknown argument: $arg"
         invoke_help
@@ -595,6 +642,12 @@ invoke_update "$@"
 # Start the script
 invoke_intro
 preflight_check
+
+# Check if user wants to select a specific release
+if [ "$SELECT_RELEASE" -eq 1 ]; then
+    choose_release_label
+fi
+
 echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
 echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
 echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"

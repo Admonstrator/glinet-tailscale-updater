@@ -29,6 +29,8 @@ The `update-tailscale.sh` script supports the following arguments:
 
 - `--no-tiny`: Won't use the tiny version of the tailscale binaries. Useful if you want to use the full version of the tailscale binaries. The tiny version is recommended for GL.iNet routers.
 
+- `--select-release`: Allows you to select a specific release version from the repository. The script will display all available releases and let you choose one. **Note:** Downgrading is not officially supported by Tailscale and could lead to issues.
+
 - `--help`: Displays the help message with information about the available arguments.
 
 ## Quick start
@@ -40,6 +42,16 @@ wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/gline
 ```
 
 **Please do not run this script as a cron job! It is recommended to run it manually!**
+
+## Selecting a specific version
+
+If you need to install a specific version of Tailscale (for example, if the latest version doesn't work with your modem), you can use the `--select-release` option:
+
+```shell
+wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh --select-release
+```
+
+The script will display a list of available releases and allow you to select one by entering its corresponding number. **Important:** Downgrading Tailscale is not officially supported and may lead to unexpected behavior or issues.
 
 ## Force update
 
