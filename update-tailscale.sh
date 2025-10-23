@@ -9,13 +9,13 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Date: 2024-01-24
-SCRIPT_VERSION="2025.07.13.01"
+# Date: 2025-10-23
+SCRIPT_VERSION="2025.10.23.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help] [--select-release]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
