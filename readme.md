@@ -72,6 +72,8 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
 | `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
 | `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
+| `--log` | Shows timestamps in all log messages. Useful for debugging and tracking execution time. |
+| `--ascii` | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals. |
 | `--help` | Displays help message with all available arguments. |
 
 ---
@@ -113,6 +115,26 @@ sh update-tailscale.sh --restore
 ```
 
 > **⚠️ Caution:** This does not restore configuration files and may result in a broken installation.
+
+### Logging and Output Options
+
+Enable timestamps for debugging or tracking execution time:
+
+```bash
+sh update-tailscale.sh --log
+```
+
+Use ASCII characters instead of emojis for compatibility with older terminals:
+
+```bash
+sh update-tailscale.sh --ascii
+```
+
+Combine both options:
+
+```bash
+sh update-tailscale.sh --log --ascii
+```
 
 ---
 
