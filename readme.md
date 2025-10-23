@@ -29,6 +29,8 @@ The `update-tailscale.sh` script supports the following arguments:
 
 - `--no-tiny`: Won't use the tiny version of the tailscale binaries. Useful if you want to use the full version of the tailscale binaries. The tiny version is recommended for GL.iNet routers.
 
+- `--select-release`: Allows you to select a specific version of Tailscale to install instead of the latest version. Useful if the latest version has compatibility issues with your device.
+
 - `--help`: Displays the help message with information about the available arguments.
 
 ## Quick start

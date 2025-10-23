@@ -15,7 +15,7 @@ SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
 #
-# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--help]
+# Usage: ./update-tailscale.sh [--ignore-free-space] [--force] [--restore] [--no-upx] [--no-download] [--no-tiny] [--select-release] [--help]
 # Warning: This script might potentially harm your router. Use it at your own risk.
 #
 # Variables
@@ -26,6 +26,7 @@ UPX_ERROR=0
 NO_UPX=0
 NO_DOWNLOAD=0
 NO_TINY=0
+SELECT_RELEASE=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -159,7 +160,7 @@ get_latest_tailscale_version_tiny() {
         exit 1
     fi
     TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-    if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+    if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ] && [ "$SELECT_RELEASE" -eq 0 ]; then
         log "SUCCESS" "You already have the latest version."
         log "INFO" "If you encounter issues while using the tiny version, please use the normal version."
         log "INFO" "You can do this by using the --no-tiny flag."
@@ -189,21 +190,37 @@ get_latest_tailscale_version() {
         TAILSCALE_VERSION_NEW="manually"
     else
         log "INFO" "Detecting latest tailscale version"
-        if [ "$ARCH" = "aarch64" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
-        elif [ "$ARCH" = "armv7l" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
-        elif [ "$ARCH" = "x86_64" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
-        elif [ "$ARCH" = "mips" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+        if [ -n "$SELECTED_VERSION" ]; then
+            # Use the selected version
+            TAILSCALE_VERSION_NEW="$SELECTED_VERSION"
+            log "INFO" "Using selected version: $SELECTED_VERSION"
+            if [ "$ARCH" = "aarch64" ]; then
+                TAILSCALE_VERSION_NEW="tailscale_${SELECTED_VERSION}_arm64.tgz"
+            elif [ "$ARCH" = "armv7l" ]; then
+                TAILSCALE_VERSION_NEW="tailscale_${SELECTED_VERSION}_arm.tgz"
+            elif [ "$ARCH" = "x86_64" ]; then
+                TAILSCALE_VERSION_NEW="tailscale_${SELECTED_VERSION}_amd64.tgz"
+            elif [ "$ARCH" = "mips" ]; then
+                TAILSCALE_VERSION_NEW="tailscale_${SELECTED_VERSION}_mips.tgz"
+            fi
+        else
+            # Auto-detect latest version
+            if [ "$ARCH" = "aarch64" ]; then
+                TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
+            elif [ "$ARCH" = "armv7l" ]; then
+                TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+            elif [ "$ARCH" = "x86_64" ]; then
+                TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
+            elif [ "$ARCH" = "mips" ]; then
+                TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+            fi
         fi
         if [ -z "$TAILSCALE_VERSION_NEW" ]; then
             log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
             exit 1
         fi
         TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-        if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ]; then
+        if [ "$TAILSCALE_VERSION_NEW" == "$TAILSCALE_VERSION_OLD" ] && [ "$SELECT_RELEASE" -eq 0 ]; then
             log "SUCCESS" "You already have the latest version."
             exit 0
         fi
@@ -482,6 +499,7 @@ invoke_help() {
     echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
     echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
     echo -e "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m"
+    echo -e "  \033[93m--select-release\033[0m     \033[97mSelect a specific tailscale version to install\033[0m"
     echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
 }
 
@@ -550,6 +568,65 @@ log() {
     echo -e "${color}[$timestamp] [$level] $message${INFO}"
 }
 
+# Function to choose a GitHub release label
+choose_release_label() {
+    if [ "$NO_TINY" -eq 1 ]; then
+        # For normal Tailscale, fetch from official Tailscale releases
+        log "INFO" "Fetching available Tailscale releases from pkgs.tailscale.com..."
+        # Note: The official pkgs.tailscale.com doesn't provide an API, so we scrape the HTML
+        # We'll get versions from the stable directory
+        if [ "$ARCH" = "aarch64" ]; then
+            available_versions=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | sed 's/tailscale_//g' | sed 's/_arm64\.tgz//g' | sort -V -r | head -n 20)
+        elif [ "$ARCH" = "armv7l" ]; then
+            available_versions=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | sed 's/tailscale_//g' | sed 's/_arm\.tgz//g' | sort -V -r | head -n 20)
+        elif [ "$ARCH" = "x86_64" ]; then
+            available_versions=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | sed 's/tailscale_//g' | sed 's/_amd64\.tgz//g' | sort -V -r | head -n 20)
+        elif [ "$ARCH" = "mips" ]; then
+            available_versions=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | sed 's/tailscale_//g' | sed 's/_mips\.tgz//g' | sort -V -r | head -n 20)
+        fi
+    else
+        # For tiny Tailscale, fetch from GitHub releases
+        log "INFO" "Fetching available tiny Tailscale releases from GitHub..."
+        available_versions=$(curl -s "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//g' | head -n 20)
+    fi
+    
+    if [ -z "$available_versions" ]; then
+        log "ERROR" "Could not retrieve release versions. Please check your internet connection."
+        exit 1
+    fi
+
+    log "INFO" "Available versions:"
+    
+    # Display versions with numbered options
+    i=1
+    for version in $available_versions; do
+        echo -e "\033[93m $i) $version\033[0m"
+        i=$((i + 1))
+    done
+    
+    echo -e "\033[93m Select a version by entering the corresponding number: \033[0m"
+    read -r version_choice
+    selected_version=$(echo "$available_versions" | sed -n "${version_choice}p")
+    
+    if [ -z "$selected_version" ]; then
+        log "ERROR" "Invalid choice. Exiting..."
+        exit 1
+    else
+        log "INFO" "You selected version: $selected_version"
+        if [ "$NO_TINY" -eq 1 ]; then
+            # For normal Tailscale, this doesn't change URL structure, version is embedded in filename
+            SELECTED_VERSION="$selected_version"
+        else
+            # For tiny Tailscale, update the download URL to use the selected release
+            TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/$selected_version"
+        fi
+        log "WARNING" "Downgrading is not officially supported by Tailscale!"
+        log "WARNING" "This might cause issues with your configuration."
+        log "WARNING" "Make sure you have a backup of your configuration!"
+    fi
+}
+
+
 # Read arguments
 for arg in "$@"; do
     case $arg in
@@ -575,6 +652,9 @@ for arg in "$@"; do
     --no-tiny)
         NO_TINY=1
         ;;
+    --select-release)
+        SELECT_RELEASE=1
+        ;;
     *)
         echo "Unknown argument: $arg"
         invoke_help
@@ -595,6 +675,12 @@ invoke_update "$@"
 # Start the script
 invoke_intro
 preflight_check
+
+# If --select-release flag is used, allow user to choose a version
+if [ "$SELECT_RELEASE" -eq 1 ]; then
+    choose_release_label
+fi
+
 echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
 echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
 echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
