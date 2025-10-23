@@ -1,11 +1,12 @@
 #!/bin/sh
-# shellcheck shell=dash
+# shellcheck shell=ash
+# shellcheck disable=SC3036
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.23.02"
+SCRIPT_VERSION="2025.10.23.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -243,7 +244,7 @@ get_latest_tailscale_version() {
         log "WARNING" "--force flag is used. Continuing with upx compression"
         answer_compress_binaries="y"
     else
-        echo -e -n "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) " && read -r answer_compress_binaries
+        printf "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) " && read -r answer_compress_binaries
     fi
     # Extract tailscale
 
@@ -386,7 +387,7 @@ upgrade_persistance() {
         echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
         echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
         echo "└────────────────────────────────────────────────────────────────────────────────┘"
-        echo -e "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)"
+        printf "> \033[36mDo you want to make the installation permanent?\033[0m (y/N)\n"
         if [ "$FORCE" -eq 1 ]; then
             log "WARNING" "--force flag is used. Continuing"
             answer_create_persistance="y"
@@ -422,11 +423,11 @@ upgrade_persistance() {
 }
 
 restore() {
-    echo -e "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m"
-    echo -e "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m"
-    echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
-    echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
-    echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
+    printf "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m\n"
+    printf "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m\n"
+    printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
+    printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
+    printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
     if [ "$FORCE" -eq 1 ]; then
         log "WARNING" "--force flag is used. Continuing"
         answer_restore="y"
@@ -483,18 +484,18 @@ invoke_outro() {
 }
 
 invoke_help() {
-    echo -e "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93mOPTIONS\033[0m]"
-    echo -e "\033[1mOptions:\033[0m"
-    echo -e "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m"
-    echo -e "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m"
-    echo -e "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m"
-    echo -e "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m"
-    echo -e "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m"
-    echo -e "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m"
-    echo -e "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m"
-    echo -e "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m"
-    echo -e "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m"
-    echo -e "  \033[93m--help\033[0m               \033[97mShow this help\033[0m"
+    printf "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93mOPTIONS\033[0m]\n"
+    printf "\033[1mOptions:\033[0m\n"
+    printf "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m\n"
+    printf "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m\n"
+    printf "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m\n"
+    printf "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m\n"
+    printf "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m\n"
+    printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
+    printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
+    printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
+    printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
+    printf "  \033[93m--help\033[0m               \033[97mShow this help\033[0m\n"
 }
 
 invoke_update() {
@@ -537,7 +538,8 @@ restart_tailscale() {
 log() {
     local level=$1
     local message=$2
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
     local color=$INFO # Default to no color
     local symbol=""
 
@@ -578,9 +580,9 @@ log() {
 
     # Build output with or without timestamp
     if [ "$SHOW_LOG" -eq 1 ]; then
-        echo -e "${color}[$timestamp] $symbol$message${INFO}"
+        printf "${color}[$timestamp] $symbol$message${INFO}\n"
     else
-        echo -e "${color}$symbol$message${INFO}"
+        printf "${color}$symbol$message${INFO}\n"
     fi
 }
 
@@ -599,11 +601,11 @@ choose_release_label() {
     # Display labels with numbered options
     i=1
     for label in $available_labels; do
-        echo -e "\033[93m $i) $label\033[0m"
+        printf "\033[93m %d) %s\033[0m\n" "$i" "$label"
         i=$((i + 1))
     done
-    
-    echo -e "\033[93m Select a release by entering the corresponding number: \033[0m"
+
+    printf "\033[93m Select a release by entering the corresponding number: \033[0m"
     read -r label_choice
     selected_label=$(echo "$available_labels" | sed -n "${label_choice}p")
     
@@ -686,9 +688,9 @@ if [ "$SELECT_RELEASE" -eq 1 ]; then
     choose_release_label
 fi
 
-echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
-echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
-echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
+printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
+printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
+printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
 if [ "$FORCE" -eq 1 ]; then
     log "WARNING" "--force flag is used. Continuing"
     answer="y"
@@ -697,15 +699,15 @@ else
 fi
 if [ "$answer" != "${answer#[Yy]}" ]; then
     if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-        echo -e "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m"
-        echo -e "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m"
-        echo -e "\033[31m│ your router. Use it at your own risk.                                  │\033[0m"
-        echo -e "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m"
-        echo -e "\033[31m│ goes wrong.                                                            │\033[0m"
-        echo -e "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m"
-        echo -e "\033[93m┌──────────────────────────────────────────────────┐\033[0m"
-        echo -e "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m"
-        echo -e "\033[93m└──────────────────────────────────────────────────┘\033[0m"
+        printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
+        printf "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m\n"
+        printf "\033[31m│ your router. Use it at your own risk.                                  │\033[0m\n"
+        printf "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m\n"
+        printf "\033[31m│ goes wrong.                                                            │\033[0m\n"
+        printf "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m\n"
+        printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
+        printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
+        printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
         if [ "$FORCE" -eq 1 ]; then
             log "WARNING" "--force flag is used. Continuing"
             answer="y"

@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.23.02-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.23.03-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
