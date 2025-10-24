@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.24.02"
+SCRIPT_VERSION="2025.10.24.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -57,10 +57,10 @@ invoke_intro() {
     echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
     echo ""
     echo "============================================================"
-    echo "IMPORTANT: Due to an bug in the GL.iNet firmware,"
-    echo "the tailscale version won't be updated to the latest one"
-    echo "Hardcoded version in this script is 1.88.3"
-    echo "This will be removed once GL.iNet fixes the issue."
+    printf "\033[91mIMPORTANT: Due to an bug in the GL.iNet firmware,\033[0m\n"
+    printf "\033[91mthe tailscale version won't be updated to the latest one\033[0m\n"
+    printf "\033[91mHardcoded version in this script is 1.88.3\033[0m\n"
+    printf "\033[91mThis will be removed once GL.iNet fixes the issue.\033[0m\n"
     echo "============================================================"
     }
 preflight_check() {
