@@ -24,20 +24,6 @@ Tested on nearly all GL.iNet routers with firmware 4.x
 
 ---
 
-## ⚠️ **IMPORTANT NOTICE - Hardcoded Tailscale Version**
-
-<div align="center">
-
-### 🔴 Due to a bug in the GL.iNet firmware, the Tailscale version won't be updated to the latest one
-
-**Hardcoded version in this script: `1.88.3`**
-
-This limitation will be removed once GL.iNet fixes the firmware issue.
-
-</div>
-
----
-
 ## ✨ Features
 
 - 🚀 **Automatic Updates** - Fetches and installs the latest Tailscale version
@@ -71,6 +57,7 @@ wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/gline
 
 > ⚠️ **Important:** Do not run this script as a cron job! Manual execution is recommended.
 
+---
 
 ## 🎛️ Arguments
 
