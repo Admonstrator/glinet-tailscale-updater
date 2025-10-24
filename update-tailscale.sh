@@ -62,7 +62,7 @@ invoke_intro() {
     echo "Hardcoded version in this script is 1.88.3"
     echo "This will be removed once GL.iNet fixes the issue."
     echo "============================================================"
-
+    }
 preflight_check() {
     AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
     AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
