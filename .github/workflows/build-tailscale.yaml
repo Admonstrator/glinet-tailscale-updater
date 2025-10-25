@@ -70,12 +70,14 @@ jobs:
           # Get version information
           eval `CGO_ENABLED=0 go run ./cmd/mkversion`
           
-          # Generate extra-small tags and add ts_include_cli for combined binary support
-          # Include unixsocketidentity to enable proper LocalAPI access control on Unix systems
-          EXTRA_SMALL_TAGS=$(go run ./cmd/featuretags --min --add=osrouter,unixsocketidentity)
-          BUILD_TAGS="${EXTRA_SMALL_TAGS},ts_include_cli"
+          # Generate small binary tags by removing unneeded features for routers
+          # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
+          # Remove desktop/enterprise features that aren't needed on routers
+          SMALL_TAGS=$(go run ./cmd/featuretags --remove=ace,acme,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud,completion,dbus,debugeventbus,debugportmapper,desktop_sessions,doctor,drive,identityfederation,kube,linkspeed,linuxdnsfight,netlog,networkmanager,oauthkey,outboundproxy,posture,relayserver,resolved,sdnotify,serve,ssh,synology,syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient)
+          # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
+          BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
           
-          # Set ldflags with version info and stripping (like --extra-small)
+          # Set ldflags with version info and stripping
           LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
           
           # Build the binary
@@ -182,7 +184,8 @@ jobs:
             This release was created by:
 
             * Building a combined binary of `tailscale` and `tailscaled` with the `ts_include_cli` build tag
-            * Using minimal feature tags for size optimization (equivalent to `--extra-small`)
+            * Optimized for router/embedded use - removes desktop/enterprise features while keeping essential router functionality
+            * Keeps critical features: DNS, routes, exit nodes, health checks, peer API, NAT traversal, and more
             * Including `unixsocketidentity` feature for proper LocalAPI access control on Unix/OpenWrt systems
             * Compressing the binary with UPX
 
