@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.25.01"
+SCRIPT_VERSION="2025.10.25.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -520,7 +520,14 @@ invoke_update() {
 invoke_modify_script() {
     if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
         log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
-        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false
+        # Restore original gl_tailscale script from rom first
+        if [ -f "/rom/usr/bin/gl_tailscale" ]; then
+            cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
+            log "SUCCESS" "gl_tailscale script restored from /rom"
+        else
+            log "WARNING" "gl_tailscale script not found in /rom, proceeding with existing script"
+        fi
+        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false and --advertise-exit-node
         sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false --advertise-exit-node"|g' /usr/bin/gl_tailscale
         log "SUCCESS" "gl_tailscale script modified successfully"
     else
