@@ -180,8 +180,8 @@ jobs:
 
             This release was created by:
 
-            * Building a combined binary of `tailscale` and `tailscaled`
-            * Using the build option `--extra-small`
+            * Building a combined binary of `tailscale` and `tailscaled` with the `ts_include_cli` build tag
+            * Using minimal feature tags for size optimization (equivalent to `--extra-small`)
             * Compressing the binary with UPX
 
-            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic (`ln -sv tailscaled tailscale`) link.
+            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic link (`ln -sv tailscaled tailscale`). When invoked as `tailscale`, it acts as the CLI; when invoked as `tailscaled`, it acts as the daemon.
