@@ -542,13 +542,21 @@ restart_tailscale() {
     log "INFO" "Restarting tailscale"
     /etc/init.d/tailscale restart 2>/dev/null
     # Give the daemon time to start and create the socket
-    sleep 3
-    # Verify the daemon is running
-    if pgrep -x tailscaled > /dev/null; then
-        log "SUCCESS" "Tailscaled daemon is running"
-    else
-        log "WARNING" "Tailscaled daemon may not be running. Please check with: ps | grep tailscaled"
-    fi
+    log "INFO" "Waiting for tailscaled to start..."
+    sleep 2
+    # Poll for daemon startup with timeout
+    timeout=10
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if pgrep -x tailscaled > /dev/null 2>&1; then
+            log "SUCCESS" "Tailscaled daemon is running"
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    log "WARNING" "Tailscaled daemon may not be running. Please check with: pgrep -x tailscaled"
+    return 1
 }
 
 log() {
