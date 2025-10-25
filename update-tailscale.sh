@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.25.03"
+SCRIPT_VERSION="2025.10.25.04"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -14,6 +14,7 @@ TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/rel
 # Variables
 IGNORE_FREE_SPACE=0
 FORCE=0
+FORCE_UPGRADE=0
 RESTORE=0
 UPX_ERROR=0
 NO_UPX=0
@@ -160,13 +161,16 @@ get_latest_tailscale_version_tiny() {
         exit 1
     fi
     TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-    if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ]; then
+    if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ] && [ "$FORCE_UPGRADE" -eq 0 ]; then
         log "SUCCESS" "You already have the latest version."
+        log "INFO" "You can force reinstall with the --force-upgrade flag."
         log "INFO" "If you encounter issues while using the tiny version, please use the normal version."
         log "INFO" "You can do this by using the --no-tiny flag."
         log "INFO" "Make sure to have enough space available. The normal version needs at least 50 MB."
         log "INFO" "This issue is because not every release will be published in the official repository."
         exit 0
+    elif [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ] && [ "$FORCE_UPGRADE" -eq 1 ]; then
+        log "WARNING" "--force-upgrade flag is used. Continuing with reinstallation"
     fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     log "INFO" "Downloading latest tailscale version"
@@ -204,9 +208,11 @@ get_latest_tailscale_version() {
             exit 1
         fi
         TAILSCALE_VERSION_OLD="$(tailscale --version | head -1)"
-        if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ]; then
+        if [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ] && [ "$FORCE_UPGRADE" -eq 0 ]; then
             log "SUCCESS" "You already have the latest version."
             exit 0
+        elif [ "$TAILSCALE_VERSION_NEW" = "$TAILSCALE_VERSION_OLD" ] && [ "$FORCE_UPGRADE" -eq 1 ]; then
+            log "WARNING" "--force-upgrade flag is used. Continuing with reinstallation"
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
         log "INFO" "Downloading latest tailscale version"
@@ -479,6 +485,7 @@ invoke_help() {
     printf "\033[1mOptions:\033[0m\n"
     printf "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m\n"
     printf "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m\n"
+    printf "  \033[93m--force-upgrade\033[0m      \033[97mForce upgrade even if already up to date\033[0m\n"
     printf "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m\n"
     printf "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m\n"
     printf "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m\n"
@@ -659,6 +666,9 @@ for arg in "$@"; do
         ;;
     --ascii)
         ASCII_MODE=1
+        ;;
+    --force-upgrade)
+        FORCE_UPGRADE=1
         ;;
     *)
         echo "Unknown argument: $arg"
