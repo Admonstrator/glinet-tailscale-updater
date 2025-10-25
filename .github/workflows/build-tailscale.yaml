@@ -79,7 +79,7 @@ jobs:
           LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
           
           # Build the binary
-          if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
+          if [[ "${{ matrix.platform }}" == "mips" || "${{ matrix.platform }}" == "mipsle" ]]; then
             CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat \
             go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
             -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
