@@ -164,6 +164,16 @@ For standard (non-tiny) binaries, UPX compression:
 - 🔹 Requires `xz` (auto-installed if missing)
 - 🔹 Can be disabled with `--no-upx`
 
+### 🔧 Technical: Unix Socket Identity (v1.90+)
+
+Starting with Tailscale 1.90, the tiny binaries include the `unixsocketidentity` feature:
+- 🔹 Enables proper LocalAPI access control on Unix/OpenWrt systems
+- 🔹 Allows the daemon to identify users connecting via Unix sockets
+- 🔹 Prevents "Access denied: status access denied" errors
+- 🔹 Essential for commands like `tailscale status` to work correctly
+
+This feature was added to fix compatibility issues with Tailscale 1.90+ on OpenWrt.
+
 ---
 
 ## 💬 Feedback
