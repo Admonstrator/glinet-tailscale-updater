@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.25.02"
+SCRIPT_VERSION="2025.10.25.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -42,19 +42,12 @@ invoke_intro() {
     echo ""
     echo "============================================================"
     echo ""
-    echo "  This script will update Tailscale on your router."
-    echo ""
-    echo "  Prerequisites:"
-    echo "    - At least 15 MB of free space"
-    echo "    - GL.iNet: Firmware 4+ | OpenWrt: Any version"
-    echo "    - arm64, armv7, x86_64, mips or mipsle"
-    echo ""
-    echo "============================================================"
-    echo ""
     echo "  Support this project:"
     echo "    - GitHub: github.com/sponsors/admonstrator"
     echo "    - Ko-fi: ko-fi.com/admon"
     echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
+    echo ""
+    echo "============================================================"
     echo ""
     }
 preflight_check() {

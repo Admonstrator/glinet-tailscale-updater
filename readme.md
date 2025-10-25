@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.25.02-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.25.03-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
@@ -164,16 +164,6 @@ For standard (non-tiny) binaries, UPX compression:
 - 🔹 Requires `xz` (auto-installed if missing)
 - 🔹 Can be disabled with `--no-upx`
 
-### 🔧 Technical: Unix Socket Identity (v1.90+)
-
-Starting with Tailscale 1.90, the tiny binaries include the `unixsocketidentity` feature:
-- 🔹 Enables proper LocalAPI access control on Unix/OpenWrt systems
-- 🔹 Allows the daemon to identify users connecting via Unix sockets
-- 🔹 Prevents "Access denied: status access denied" errors
-- 🔹 Essential for commands like `tailscale status` to work correctly
-
-This feature was added to fix compatibility issues with Tailscale 1.90+ on OpenWrt.
-
 ---
 
 ## 💬 Feedback
@@ -201,6 +191,8 @@ Special thanks to:
 
 - **[lwbt](https://github.com/lwbt)** - UPX compression & tiny-tailscale feature
 - **[Aubermean](https://github.com/Aubermean)** - Clarification of `--stateful-filtering=false` ([#1](https://github.com/Admonstrator/glinet-tailscale-updater/issues/1))
+- **[all the testers and feedback providers in the GL.iNet forum!]**
+- **Copilot** - Yeah, I am using AI to help write code. But I review and test everything thoroughly!
 
 Want to contribute? Pull requests are welcome!
 
