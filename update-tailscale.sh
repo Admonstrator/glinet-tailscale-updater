@@ -536,8 +536,19 @@ invoke_modify_script() {
 }
 
 restart_tailscale() {
+    log "INFO" "Ensuring socket directory exists with proper permissions"
+    mkdir -p /var/run/tailscale
+    chmod 755 /var/run/tailscale
     log "INFO" "Restarting tailscale"
     /etc/init.d/tailscale restart 2>/dev/null
+    # Give the daemon time to start and create the socket
+    sleep 3
+    # Verify the daemon is running
+    if pgrep -x tailscaled > /dev/null; then
+        log "SUCCESS" "Tailscaled daemon is running"
+    else
+        log "WARNING" "Tailscaled daemon may not be running. Please check with: ps | grep tailscaled"
+    fi
 }
 
 log() {
