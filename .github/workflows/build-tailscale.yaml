@@ -67,13 +67,24 @@ jobs:
         run: go mod download
       - name: Cross-compile
         run: |
+          # Get version information
+          eval `CGO_ENABLED=0 go run ./cmd/mkversion`
+          
+          # Generate extra-small tags and add ts_include_cli for combined binary support
+          EXTRA_SMALL_TAGS=$(go run ./cmd/featuretags --min --add=osrouter)
+          BUILD_TAGS="${EXTRA_SMALL_TAGS},ts_include_cli"
+          
+          # Set ldflags with version info and stripping (like --extra-small)
+          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
+          
+          # Build the binary
           if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
-            GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat ./build_dist.sh \
-            --extra-small \
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat \
+            go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
             -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
           else
-            GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} ./build_dist.sh \
-            --extra-small \
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} \
+            go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
             -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
           fi
       - name: Upload built binary
