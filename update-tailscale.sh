@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.24.03"
+SCRIPT_VERSION="2025.10.25.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -56,12 +56,6 @@ invoke_intro() {
     echo "    - Ko-fi: ko-fi.com/admon"
     echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
     echo ""
-    echo "============================================================"
-    printf "\033[91mIMPORTANT: Due to an bug in the GL.iNet firmware,\033[0m\n"
-    printf "\033[91mthe tailscale version won't be updated to the latest one\033[0m\n"
-    printf "\033[91mHardcoded version in this script is 1.88.3\033[0m\n"
-    printf "\033[91mThis will be removed once GL.iNet fixes the issue.\033[0m\n"
-    echo "============================================================"
     }
 preflight_check() {
     AVAILABLE_SPACE=$(df -k / | tail -n 1 | awk '{print $4/1024}')
@@ -527,7 +521,7 @@ invoke_modify_script() {
     if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
         log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
         # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false
-        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|' /usr/bin/gl_tailscale
+        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false --advertise-exit-node"|g' /usr/bin/gl_tailscale
         log "SUCCESS" "gl_tailscale script modified successfully"
     else
         log "INFO" "Not a GL.iNet router or gl_tailscale script not found, skipping GL-specific modifications"

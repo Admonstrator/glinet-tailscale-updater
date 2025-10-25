@@ -1,6 +1,8 @@
 name: Build smaller Tailscale binary
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
 env:
   SOFTWARE_NAME: "Tailscale"
   FILE_NAME: "tailscaled"

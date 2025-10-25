@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.24.03-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.25.01-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
@@ -19,20 +19,6 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 Tested on nearly all GL.iNet routers with firmware 4.x
 
 [Quick Start](#-quick-start) • [Documentation](#-arguments) • [Support](#-feedback) • [Contributing](#-contributors)
-
-</div>
-
----
-
-## ⚠️ **IMPORTANT NOTICE - Hardcoded Tailscale Version**
-
-<div align="center">
-
-### 🔴 Due to a bug in the GL.iNet firmware, the Tailscale version won't be updated to the latest one
-
-**Hardcoded version in this script: `1.88.3`**
-
-This limitation will be removed once GL.iNet fixes the firmware issue.
 
 </div>
 
