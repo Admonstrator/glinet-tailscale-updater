@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-26
-SCRIPT_VERSION="2025.10.26.05"
+SCRIPT_VERSION="2025.10.26.06"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -620,8 +620,8 @@ invoke_modify_script() {
         else
             log "WARNING" "gl_tailscale script not found in /rom, proceeding with existing script"
         fi
-        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false and --advertise-exit-node
-        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false --advertise-exit-node"|g' /usr/bin/gl_tailscale
+        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false 
+        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|g' /usr/bin/gl_tailscale
 
         # Use the pre-collected user preference for SSH
         if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
