@@ -111,11 +111,17 @@ jobs:
             go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
             -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
           fi
+          echo "${VERSION_SHORT_CUSTOM}" > "version.txt"
       - name: Upload built binary
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
           path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+      - name: Upload version file
+        uses: actions/upload-artifact@v4
+        with:
+          name: version.txt
+          path: version.txt 
   publish:
     runs-on: ubuntu-latest
     permissions:
@@ -165,23 +171,6 @@ jobs:
       - name: Create checksums
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
-      - name: Create version file
-        run: |
-          # Get version information to create custom version
-          eval `CGO_ENABLED=0 go run ./cmd/mkversion`
-          
-          # Generate custom build number based on GitHub run number, or use timestamp if unavailable
-          if [ -n "${GITHUB_RUN_NUMBER}" ]; then
-            CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
-          else
-            CUSTOM_BUILD_NUMBER="$(date +%s)"
-          fi
-          CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
-          
-          # Append custom version suffix to Tailscale version
-          VERSION_SHORT_CUSTOM="${VERSION_SHORT}${CUSTOM_VERSION_SUFFIX}"
-          
-          echo "${VERSION_SHORT_CUSTOM}" > "version.txt"
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
         uses: actions/checkout@v4
         with:
