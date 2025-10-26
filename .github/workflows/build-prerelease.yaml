@@ -68,8 +68,12 @@ jobs:
           # Get version information
           eval `CGO_ENABLED=0 go run ./cmd/mkversion`
           
-          # Generate custom build number based on GitHub run number
-          CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
+          # Generate custom build number based on GitHub run number, or use timestamp if unavailable
+          if [ -n "${GITHUB_RUN_NUMBER}" ]; then
+            CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          else
+            CUSTOM_BUILD_NUMBER="$(date +%s)"
+          fi
           CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
           
           # Append custom version suffix to Tailscale version
