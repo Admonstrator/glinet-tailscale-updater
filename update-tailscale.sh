@@ -81,8 +81,13 @@ load_environment() {
 invoke_wrapper() {
     log "INFO" "Starting background execution wrapper"
     
-    # Get the current script path
-    SCRIPT_PATH=$(readlink -f "$0")
+    # Get the current script path (portable method for OpenWrt/BusyBox)
+    if command -v readlink >/dev/null 2>&1 && readlink -f "$0" >/dev/null 2>&1; then
+        SCRIPT_PATH=$(readlink -f "$0")
+    else
+        # Fallback for systems without readlink -f (e.g., some BusyBox versions)
+        SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+    fi
     
     # Copy script to temp location
     log "INFO" "Copying script to $WRAPPER_SCRIPT"
@@ -113,15 +118,19 @@ invoke_wrapper() {
     # Start the wrapped script in background with nohup
     log "INFO" "Starting background execution..."
     
-    # Use nohup and redirect output to log file
+    # Determine which method to use for background execution
+    BACKGROUND_CMD=""
     if command -v nohup >/dev/null 2>&1; then
-        nohup "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
-        WRAPPER_PID=$!
-        log "SUCCESS" "Background process started with PID: $WRAPPER_PID"
+        BACKGROUND_CMD="nohup"
     elif command -v setsid >/dev/null 2>&1; then
-        setsid "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        BACKGROUND_CMD="setsid"
+    fi
+    
+    # Launch the wrapped script
+    if [ -n "$BACKGROUND_CMD" ]; then
+        $BACKGROUND_CMD "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
         WRAPPER_PID=$!
-        log "SUCCESS" "Background process started with PID: $WRAPPER_PID"
+        log "SUCCESS" "Background process started with PID: $WRAPPER_PID (using $BACKGROUND_CMD)"
     else
         # Fallback to simple background execution
         "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
@@ -681,8 +690,15 @@ invoke_outro() {
     # Clean up wrapper files if running in wrapped mode
     if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
         log "INFO" "Cleaning up wrapper files"
-        [ -f "$ENV_FILE" ] && rm -f "$ENV_FILE"
-        [ -f "$WRAPPER_SCRIPT" ] && rm -f "$WRAPPER_SCRIPT"
+        # Validate paths before deletion to ensure they're in /tmp
+        if [ -f "$ENV_FILE" ] && echo "$ENV_FILE" | grep -q "^/tmp/"; then
+            rm -f "$ENV_FILE"
+            log "SUCCESS" "Removed environment file: $ENV_FILE"
+        fi
+        if [ -f "$WRAPPER_SCRIPT" ] && echo "$WRAPPER_SCRIPT" | grep -q "^/tmp/"; then
+            rm -f "$WRAPPER_SCRIPT"
+            log "SUCCESS" "Removed wrapper script: $WRAPPER_SCRIPT"
+        fi
         log "SUCCESS" "Wrapper cleanup complete"
     fi
 }
