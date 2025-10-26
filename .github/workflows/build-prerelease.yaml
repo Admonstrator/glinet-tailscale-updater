@@ -71,6 +71,17 @@ jobs:
           # Get version information
           eval `CGO_ENABLED=0 go run ./cmd/mkversion`
           
+          # Generate custom build number based on GitHub run number
+          CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
+          CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
+          
+          # Append custom version suffix to Tailscale version
+          VERSION_SHORT_CUSTOM="${VERSION_SHORT}${CUSTOM_VERSION_SUFFIX}"
+          VERSION_LONG_CUSTOM="${VERSION_LONG}${CUSTOM_VERSION_SUFFIX}"
+          
+          echo "Original Tailscale version: ${VERSION_SHORT}"
+          echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
+          
           # Generate small binary tags by removing unneeded features for routers
           # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
           # Remove desktop/enterprise features that aren't needed on routers
@@ -84,8 +95,8 @@ jobs:
           # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
           BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
           
-          # Set ldflags with version info and stripping
-          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
+          # Set ldflags with custom version info and stripping
+          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
           
           # Build the binary
           if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
