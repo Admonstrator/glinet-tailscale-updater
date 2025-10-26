@@ -1,9 +1,6 @@
 name: Build Prerelease Tailscale binary
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - testing
 env:
   SOFTWARE_NAME: "Tailscale"
   FILE_NAME: "tailscaled"
@@ -142,14 +139,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ env.FILE_NAME }}-*
-      - name: Moving files
+          merge-multiple: true
+      - name: List downloaded files
         run: |
-          for dir in "${{ env.FILE_NAME }}-"*; do
-            mv -v "${dir}" "${dir}.d"
-            mv -v "${dir}.d/${{ env.FILE_NAME }}-"* .
-            rmdir -v "${dir}.d"
-          done
-          chmod -v +x "${{ env.FILE_NAME }}-"*
+          echo "Files in current directory:"
+          ls -la
       - name: Compress Binary with UPX
         run: |
           for file in "${{ env.FILE_NAME }}-"*; do
@@ -165,12 +159,18 @@ jobs:
       - name: Create version file
         run: |
           echo "${{ env.TAG }}" > "version.txt"
+      - name: List files before release
+        run: |
+          echo "Files to be released:"
+          ls -la "${{ env.FILE_NAME }}-"* checksums.txt version.txt
       - name: Checkout repository for release management
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO_SMALL }}
+          path: repo
       - name: Delete existing prerelease if exists
         run: |
+          cd repo
           # Check if prerelease tag exists and delete it
           if gh release view prerelease --repo ${{ env.REPO_SMALL }} >/dev/null 2>&1; then
             echo "Deleting existing prerelease"
