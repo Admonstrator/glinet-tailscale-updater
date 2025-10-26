@@ -5,8 +5,8 @@
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
 # Contributor: lwbt
-# Date: 2025-10-23
-SCRIPT_VERSION="2025.10.26.02"
+# Date: 2025-10-26
+SCRIPT_VERSION="2025.10.26.03"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -474,6 +474,7 @@ restore() {
         log "WARNING" "Restarting tailscale might or might not work"
         log "WARNING" "You might need to re-authenticate your device"
         start_tailscale
+        invoke_outro
     else
         log "SUCCESS" "Ok, see you next time!"
         exit 1
@@ -481,9 +482,15 @@ restore() {
 }
 
 invoke_outro() {
-    log "SUCCESS" "Script finished successfully. The new tailscale version (software, daemon) is:"
+    log "SUCCESS" "Script finished successfully. The current tailscale version (software, daemon) is:"
     tailscale version
     tailscaled --version
+    echo ""
+    echo ""
+    echo "If you like this script, please consider supporting the project:"
+    echo "  - GitHub: github.com/sponsors/admonstrator"
+    echo "  - Ko-fi: ko-fi.com/admon"
+    echo "  - Buy Me a Coffee: buymeacoffee.com/admon"
 }
 
 invoke_help() {
@@ -558,12 +565,12 @@ start_tailscale() {
     if [ -n "$IS_GLINET" ] && [ "$IS_GLINET" -eq 1 ]; then
         if [ -f "/usr/bin/gl_tailscale" ]; then
             /usr/bin/gl_tailscale start 2>/dev/null
-            sleep 5
+            sleep 3
             return
         fi
     else
         /etc/init.d/tailscale start 2>/dev/null
-        sleep 5
+        sleep 3
         return
     fi
 }
@@ -574,12 +581,12 @@ stop_tailscale() {
     if [ -n "$IS_GLINET" ] && [ "$IS_GLINET" -eq 1 ]; then
         if [ -f "/usr/bin/gl_tailscale" ]; then
             /usr/bin/gl_tailscale stop 2>/dev/null
-            sleep 5
+            sleep 3
             return
         fi
     else
         /etc/init.d/tailscale stop 2>/dev/null
-        sleep 5
+        sleep 3
         return
     fi
 }
