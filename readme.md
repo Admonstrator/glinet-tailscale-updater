@@ -72,6 +72,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
 | `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
 | `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
+| `--testing` | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
 | `--log` | Shows timestamps in all log messages. Useful for debugging and tracking execution time. |
 | `--ascii` | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals. |
 | `--help` | Displays help message with all available arguments. |
@@ -79,6 +80,16 @@ The `update-tailscale.sh` script supports the following arguments:
 ---
 
 ## 📚 Usage Examples
+
+### Testing/Prerelease Versions
+
+Install prerelease versions from the testing branch for early access to new features:
+
+```bash
+wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh --testing
+```
+
+> **⚠️ Warning:** Testing versions are experimental and may contain bugs or unstable features. Use at your own risk!
 
 ### Select a Specific Version
 

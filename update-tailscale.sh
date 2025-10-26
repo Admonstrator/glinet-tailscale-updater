@@ -23,6 +23,7 @@ NO_TINY=0
 SELECT_RELEASE=0
 SHOW_LOG=0
 ASCII_MODE=0
+TESTING=0
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -490,6 +491,7 @@ invoke_help() {
     printf "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m\n"
     printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
     printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
+    printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
     printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
     printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
     printf "  \033[93m--help\033[0m               \033[97mShow this help\033[0m\n"
@@ -497,11 +499,16 @@ invoke_help() {
 
 invoke_update() {
     log "INFO" "Checking for script updates"
-    SCRIPT_VERSION_NEW=$(curl -s "$UPDATE_URL" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
+    local update_url="$UPDATE_URL"
+    if [ "$TESTING" -eq 1 ]; then
+        update_url="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
+        log "INFO" "Testing mode: Using testing branch for script updates"
+    fi
+    SCRIPT_VERSION_NEW=$(curl -s "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
     if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
         log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
         log "INFO" "Updating the script ..."
-        curl -L -s --output /tmp/$SCRIPT_NAME "$UPDATE_URL"
+        curl -L -s --output /tmp/$SCRIPT_NAME "$update_url"
         # Get current script path
         SCRIPT_PATH=$(readlink -f "$0")
         # Replace current script with updated script
@@ -667,6 +674,9 @@ for arg in "$@"; do
     --select-release)
         SELECT_RELEASE=1
         ;;
+    --testing)
+        TESTING=1
+        ;;
     --log)
         SHOW_LOG=1
         ;;
@@ -689,6 +699,13 @@ done
 if [ "$RESTORE" -eq 1 ]; then
     restore
     exit 0
+fi
+
+# Set URLs based on --testing flag
+if [ "$TESTING" -eq 1 ]; then
+    log "INFO" "Testing mode enabled: Using prerelease versions"
+    TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/prerelease/"
+    UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
 fi
 
 # Check if the script is up to date

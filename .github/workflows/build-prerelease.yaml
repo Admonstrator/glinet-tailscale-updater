@@ -1,0 +1,208 @@
+name: Build Prerelease Tailscale binary
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - testing
+env:
+  SOFTWARE_NAME: "Tailscale"
+  FILE_NAME: "tailscaled"
+  REPO: "tailscale/tailscale"
+  REPO_SMALL: "Admonstrator/glinet-tailscale-updater"
+  GIT_AUTHOR_NAME: "Admonstrator"
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      TAG: ${{ steps.tag.outputs.TAG }}
+      TAG_SMALL: ${{ steps.tag_small.outputs.TAG_SMALL }}
+    steps:
+      - name: Get latest ${{ env.SOFTWARE_NAME }} tag
+        id: tag
+        run: |
+          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/releases/latest" | jq -r '.tag_name // empty')
+          echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
+      - name: Get latest ${{ env.SOFTWARE_NAME }} Prerelease tag
+        id: tag_small
+        run: |
+          latest_tag_small=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO_SMALL }}/releases" \
+            | jq -r '[.[] | select(.prerelease == true)][0].tag_name // empty'
+          )
+          echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
+          echo "Latest ${{ env.SOFTWARE_NAME }} Prerelease Tag: $latest_tag_small"
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs: check-versions
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    env:
+      TAG: ${{ needs.check-versions.outputs.TAG }}
+    strategy:
+      matrix:
+        go-version: [stable]
+        os: [linux]
+        platform:
+          - amd64
+          - arm
+          - arm64
+          - mips
+          - mipsle
+          - mips64
+          - mips64le
+    steps:
+      - name: Checkout ${{ env.SOFTWARE_NAME }} repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO }}
+          ref: ${{ env.TAG }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Download Go modules
+        run: go mod download
+      - name: Cross-compile
+        run: |
+          # Get version information
+          eval `CGO_ENABLED=0 go run ./cmd/mkversion`
+          
+          # Generate small binary tags by removing unneeded features for routers
+          # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
+          # Remove desktop/enterprise features that aren't needed on routers
+          FEATURES_TO_REMOVE="ace,acme,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,dbus,debugeventbus,debugportmapper,desktop_sessions"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},doctor,drive,identityfederation,kube,linkspeed,linuxdnsfight"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},netlog,networkmanager,oauthkey,outboundproxy,posture"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,serve,synology"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient"
+          SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
+          # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
+          BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
+          
+          # Set ldflags with version info and stripping
+          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
+          
+          # Build the binary
+          if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat \
+            go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
+            -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
+          else
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} \
+            go build -tags="${BUILD_TAGS}" -trimpath -ldflags "${LDFLAGS}" \
+            -o "${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}" tailscale.com/cmd/${{ env.FILE_NAME }}
+          fi
+      - name: Upload built binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+          path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - build
+      - check-versions
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    env:
+      TAG: ${{ needs.check-versions.outputs.TAG }}
+    steps:
+      - name: Get UPX latest version
+        id: get-upx-version
+        run: |
+          echo "UPX_VERSION=$(
+            curl -s https://api.github.com/repos/upx/upx/releases/latest \
+            | jq -r '.tag_name' \
+            | cut -c 2-
+          )" >> "$GITHUB_ENV"
+      - name: Download UPX
+        run: |
+          wget -q "https://github.com/upx/upx/releases/latest/download/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
+          tar --to-stdout -xf "upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz" \
+            "upx-${{ env.UPX_VERSION }}-amd64_linux/upx" > "${PWD}/upx"
+          chmod -v +x "${PWD}/upx"
+      - name: Download built binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.FILE_NAME }}-*
+      - name: Moving files
+        run: |
+          for dir in "${{ env.FILE_NAME }}-"*; do
+            mv -v "${dir}" "${dir}.d"
+            mv -v "${dir}.d/${{ env.FILE_NAME }}-"* .
+            rmdir -v "${dir}.d"
+          done
+          chmod -v +x "${{ env.FILE_NAME }}-"*
+      - name: Compress Binary with UPX
+        run: |
+          for file in "${{ env.FILE_NAME }}-"*; do
+            if [[ "$file" == *"mips64"* || "$file" == *"mips64le"* ]]; then
+              echo "Skipping UPX compression for $file due to unsupported format"
+            else
+              "${PWD}/upx" --lzma --best --no-progress "$file"
+            fi
+          done
+      - name: Create checksums
+        run: |
+          sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
+      - name: Create version file
+        run: |
+          echo "${{ env.TAG }}" > "version.txt"
+      - name: Checkout repository for release management
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO_SMALL }}
+      - name: Delete existing prerelease if exists
+        run: |
+          # Check if prerelease tag exists and delete it
+          if gh release view prerelease --repo ${{ env.REPO_SMALL }} >/dev/null 2>&1; then
+            echo "Deleting existing prerelease"
+            gh release delete prerelease --repo ${{ env.REPO_SMALL }} --yes
+            git push --delete origin prerelease || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Prerelease
+        uses: ncipollo/release-action@v1
+        with:
+          name: Prerelease ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
+          tag: prerelease
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          replacesArtifacts: true
+          artifacts: |
+            ${{ env.FILE_NAME }}-*
+            checksums.txt
+            version.txt
+          body: |
+            ⚠️ **TESTING/PRERELEASE VERSION** ⚠️
+            
+            This is a prerelease build of ${{ env.SOFTWARE_NAME }} ${{ env.TAG }} for testing purposes.
+            
+            **Use at your own risk!** This version may contain bugs or experimental features.
+            
+            To use this version, run the update script with the `--testing` flag:
+            ```bash
+            ./update-tailscale.sh --testing
+            ```
+            
+            For a complete changelog go to https://github.com/${{ env.REPO }}/releases/tag/${{ env.TAG }}
+
+            This release was created by:
+
+            * Building a combined binary of `tailscale` and `tailscaled` with the `ts_include_cli` build tag
+            * Optimized for router/embedded use - removes desktop/enterprise features while keeping essential router functionality
+            * Keeps critical features: DNS, routes, exit nodes, health checks, peer API, NAT traversal, and more
+            * Including `unixsocketidentity` feature for proper LocalAPI access control on Unix/OpenWrt systems
+            * Compressing the binary with UPX
+
+            To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic link (`ln -sv tailscaled tailscale`). When invoked as `tailscale`, it acts as the CLI; when invoked as `tailscaled`, it acts as the daemon.
