@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.26.04-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.26.05-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
@@ -163,6 +163,8 @@ The script automatically adds `--stateful-filtering=false` to the `gl_tailscale`
 ### 🔐 Tailscale SSH ready
 
 If you agree to enable Tailscale SSH during installation (manually or by using `--ssh`), the script will automatically configure Tailscale SSH after updating. You can read more about Tailscale SSH [here](https://tailscale.com/kb/1193/tailscale-ssh).
+
+**⚠️ Warning:** If you are connected to your router via Tailscale SSH, you will be disconnected when SSH support is enabled. This might cause the script to terminate prematurely. It is recommended to run the script via local SSH or via GoodCloud SSH terminal.
 
 ### 📦 Tiny-Tailscale
 

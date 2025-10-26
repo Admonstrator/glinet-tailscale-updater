@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-26
-SCRIPT_VERSION="2025.10.26.04"
+SCRIPT_VERSION="2025.10.26.05"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -559,9 +559,8 @@ invoke_outro() {
     # Show a warning that SSH will disconnect if you are conected via Tailscale SSH
     # Continue to enable Tailscale SSH if requested
     if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
-        log "WARNING" "Enabling Tailscale SSH will disconnect any active Tailscale SSH sessions."
-        log "WARNING" "If you are connected via Tailscale SSH, please reconnect after the script has finished."
-        log "INFO" "Enabling Tailscale SSH support now."
+        log "INFO" "Enabling Tailscale SSH support as requested"
+        log "WARNING" "If you are connected to your router via Tailscale SSH, you will be disconnected now."
         tailscale set --ssh --accept-risk=lose-ssh
         log "SUCCESS" "Tailscale SSH support enabled."
     fi
