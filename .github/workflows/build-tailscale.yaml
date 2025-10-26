@@ -70,21 +70,36 @@ jobs:
           # Get version information
           eval `CGO_ENABLED=0 go run ./cmd/mkversion`
           
+          # Generate custom build number based on GitHub run number, or use timestamp if unavailable
+          if [ -n "${GITHUB_RUN_NUMBER}" ]; then
+            CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          else
+            CUSTOM_BUILD_NUMBER="$(date +%s)"
+          fi
+          CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
+          
+          # Append custom version suffix to Tailscale version
+          VERSION_SHORT_CUSTOM="${VERSION_SHORT}${CUSTOM_VERSION_SUFFIX}"
+          VERSION_LONG_CUSTOM="${VERSION_LONG}${CUSTOM_VERSION_SUFFIX}"
+          
+          echo "Original Tailscale version: ${VERSION_SHORT}"
+          echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
+          
           # Generate small binary tags by removing unneeded features for routers
           # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
           # Remove desktop/enterprise features that aren't needed on routers
-          FEATURES_TO_REMOVE="ace,acme,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,dbus,debugeventbus,debugportmapper,desktop_sessions"
+          FEATURES_TO_REMOVE="ace,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,debugeventbus,debugportmapper,desktop_sessions"
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},doctor,drive,identityfederation,kube,linkspeed,linuxdnsfight"
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},netlog,networkmanager,oauthkey,outboundproxy,posture"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,serve,ssh,synology"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,serve,synology"
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient"
           SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
           # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
           BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
           
-          # Set ldflags with version info and stripping
-          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
+          # Set ldflags with custom version info and stripping
+          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
           
           # Build the binary
           if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
@@ -178,6 +193,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
+          removeArtifacts: true
+          replacesArtifacts: true
+          allowUpdates: true
           artifacts: |
             ${{ env.FILE_NAME }}-*
             checksums.txt
@@ -193,6 +211,7 @@ jobs:
             * Optimized for router/embedded use - removes desktop/enterprise features while keeping essential router functionality
             * Keeps critical features: DNS, routes, exit nodes, health checks, peer API, NAT traversal, and more
             * Including `unixsocketidentity` feature for proper LocalAPI access control on Unix/OpenWrt systems
+            * Including `ssh` feature for Tailscale SSH support
             * Compressing the binary with UPX
 
             To use both programs, rename `tailscaled-OS-ARCH` to `tailscaled` and create a symbolic link (`ln -sv tailscaled tailscale`). When invoked as `tailscale`, it acts as the CLI; when invoked as `tailscaled`, it acts as the daemon.
