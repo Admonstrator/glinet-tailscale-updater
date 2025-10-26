@@ -3,7 +3,7 @@
 # 🦭 Tailscale Updater for GL.iNet Routers
 
 [![Latest Release](https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge&logo=github&color=blue)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest)
-[![Script Version](https://img.shields.io/badge/script-2025.10.26.03-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
+[![Script Version](https://img.shields.io/badge/script-2025.10.26.04-green?style=for-the-badge&logo=linux)](https://github.com/Admonstrator/glinet-tailscale-updater)
 [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE)
 
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/admonstrator?style=for-the-badge&logo=github&label=Sponsor&color=EA4AAA)](https://github.com/sponsors/admonstrator)
@@ -29,6 +29,7 @@ Tested on nearly all GL.iNet routers with firmware 4.x
 - 🚀 **Automatic Updates** - Fetches and installs the latest Tailscale version
 - 📦 **Tiny Version Support** - Uses optimized tiny binaries to save space
 - 🗜️ **UPX Compression** - Further reduces binary size when needed
+- 🔒 **Tailscale SSH ready** - Enables secure SSH access to the router via Tailscale
 - 🎯 **Version Selection** - Install specific Tailscale versions
 - 🔧 **Stateful Filtering** - Auto-configures for exit node compatibility
 - 🛡️ **Safe Restore** - Restore original firmware binaries if needed
@@ -38,12 +39,12 @@ Tested on nearly all GL.iNet routers with firmware 4.x
 
 ## 📋 Requirements
 
-| Requirement | Details |
-|------------|---------|
-| **Router** | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
-| **Architecture** | arm64, armv7, mips, mipsle, or x86_64 |
-| **Free Space** | At least 15 MB (can be bypassed with `--ignore-free-space`) |
-| **Dependencies** | `xz` (auto-installed if missing and UPX compression is used) |
+| Requirement      | Details                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| **Router**       | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
+| **Architecture** | arm64, armv7, mips, mipsle, or x86_64                          |
+| **Free Space**   | At least 15 MB (can be bypassed with `--ignore-free-space`)    |
+| **Dependencies** | `xz` (auto-installed if missing and UPX compression is used)   |
 
 ---
 
@@ -62,20 +63,21 @@ wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/gline
 
 The `update-tailscale.sh` script supports the following arguments:
 
-| Argument | Description |
-|----------|-------------|
-| `--ignore-free-space` | Bypasses the free space check. Use with caution on low-storage devices! |
-| `--force` | Skips all confirmation prompts and makes installation permanent. Ideal for unattended installations. |
-| `--force-upgrade` | Forces upgrade even if the current version is already up to date. Useful for reinstalling the same version. |
-| `--restore` | Restores original firmware binaries (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`). ⚠️ Does not restore config files! |
-| `--no-upx` | Skips UPX compression. Binaries will be larger but installation is faster. |
-| `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
-| `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
-| `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
-| `--testing` | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
-| `--log` | Shows timestamps in all log messages. Useful for debugging and tracking execution time. |
-| `--ascii` | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals. |
-| `--help` | Displays help message with all available arguments. |
+| Argument              | Description                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--ignore-free-space` | Bypasses the free space check. Use with caution on low-storage devices!                                                          |
+| `--force`             | Skips all confirmation prompts and makes installation permanent. Ideal for unattended installations.                             |
+| `--force-upgrade`     | Forces upgrade even if the current version is already up to date. Useful for reinstalling the same version.                      |
+| `--restore`           | Restores original firmware binaries (`/usr/sbin/tailscaled` and `/usr/sbin/tailscale`). ⚠️ Does not restore config files!         |
+| `--no-upx`            | Skips UPX compression. Binaries will be larger but installation is faster.                                                       |
+| `--no-download`       | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`.                                               |
+| `--no-tiny`           | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers.                                       |
+| `--select-release`    | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported!                      |
+| `--testing`           | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
+| `--ssh`               | Enables Tailscale SSH feature after installation.                                                                                |
+| `--log`               | Shows timestamps in all log messages. Useful for debugging and tracking execution time.                                          |
+| `--ascii`             | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals.                   |
+| `--help`              | Displays help message with all available arguments.                                                                              |
 
 ---
 
@@ -157,6 +159,10 @@ The script automatically adds `--stateful-filtering=false` to the `gl_tailscale`
 - ✅ Applied automatically
 - ✅ Permanent (survives firmware upgrades)
 - ✅ No manual configuration needed
+
+### 🔐 Tailscale SSH ready
+
+If you agree to enable Tailscale SSH during installation (manually or by using `--ssh`), the script will automatically configure Tailscale SSH after updating. You can read more about Tailscale SSH [here](https://tailscale.com/kb/1193/tailscale-ssh).
 
 ### 📦 Tiny-Tailscale
 
