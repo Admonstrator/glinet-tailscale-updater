@@ -555,6 +555,16 @@ invoke_outro() {
     echo "  - GitHub: github.com/sponsors/admonstrator"
     echo "  - Ko-fi: ko-fi.com/admon"
     echo "  - Buy Me a Coffee: buymeacoffee.com/admon"
+    
+    # Show a warning that SSH will disconnect if you are conected via Tailscale SSH
+    # Continue to enable Tailscale SSH if requested
+    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
+        log "WARNING" "Enabling Tailscale SSH will disconnect any active Tailscale SSH sessions."
+        log "WARNING" "If you are connected via Tailscale SSH, please reconnect after the script has finished."
+        log "INFO" "Enabling Tailscale SSH support now."
+        tailscale set --ssh --accept-risk=lose-ssh
+        log "SUCCESS" "Tailscale SSH support enabled."
+    fi
 }
 
 invoke_help() {
