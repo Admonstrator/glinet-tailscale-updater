@@ -25,6 +25,8 @@ SHOW_LOG=0
 ASCII_MODE=0
 TESTING=0
 ENABLE_SSH=0
+BACKGROUND_MODE=0
+WRAPPED_EXECUTION=0
 USER_WANTS_UPX=""
 USER_WANTS_SSH=""
 USER_WANTS_PERSISTENCE=""
@@ -32,6 +34,111 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 INFO='\033[0m' # No Color
+ENV_FILE="/tmp/tailscale-update.env"
+LOG_FILE="/tmp/tailscale-update.log"
+WRAPPER_SCRIPT="/tmp/update-tailscale-wrapper.sh"
+
+# Wrapper Functions
+save_environment() {
+    log "INFO" "Saving execution environment to $ENV_FILE"
+    cat > "$ENV_FILE" << EOF
+# Tailscale Update Environment
+# Generated: $(date)
+IGNORE_FREE_SPACE=$IGNORE_FREE_SPACE
+FORCE=$FORCE
+FORCE_UPGRADE=$FORCE_UPGRADE
+RESTORE=$RESTORE
+NO_UPX=$NO_UPX
+NO_DOWNLOAD=$NO_DOWNLOAD
+NO_TINY=$NO_TINY
+SELECT_RELEASE=$SELECT_RELEASE
+SHOW_LOG=$SHOW_LOG
+ASCII_MODE=$ASCII_MODE
+TESTING=$TESTING
+ENABLE_SSH=$ENABLE_SSH
+BACKGROUND_MODE=$BACKGROUND_MODE
+WRAPPED_EXECUTION=1
+USER_WANTS_UPX="$USER_WANTS_UPX"
+USER_WANTS_SSH="$USER_WANTS_SSH"
+USER_WANTS_PERSISTENCE="$USER_WANTS_PERSISTENCE"
+EOF
+    log "SUCCESS" "Environment saved successfully"
+}
+
+load_environment() {
+    if [ -f "$ENV_FILE" ]; then
+        log "INFO" "Loading saved environment from $ENV_FILE"
+        # shellcheck source=/dev/null
+        . "$ENV_FILE"
+        log "SUCCESS" "Environment loaded successfully"
+        return 0
+    else
+        log "WARNING" "No saved environment found at $ENV_FILE"
+        return 1
+    fi
+}
+
+invoke_wrapper() {
+    log "INFO" "Starting background execution wrapper"
+    
+    # Get the current script path
+    SCRIPT_PATH=$(readlink -f "$0")
+    
+    # Copy script to temp location
+    log "INFO" "Copying script to $WRAPPER_SCRIPT"
+    cp "$SCRIPT_PATH" "$WRAPPER_SCRIPT"
+    chmod +x "$WRAPPER_SCRIPT"
+    
+    # Save all current flags and user responses
+    save_environment
+    
+    # Create a wrapper invocation message
+    echo "============================================================"
+    echo ""
+    echo "  Background Execution Mode"
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  The script will now run in the background to prevent"
+    echo "  interruption if your SSH session disconnects."
+    echo ""
+    echo "  You can monitor progress by checking:"
+    echo "    tail -f $LOG_FILE"
+    echo ""
+    echo "  The script will continue running even if you disconnect."
+    echo ""
+    echo "============================================================"
+    echo ""
+    
+    # Start the wrapped script in background with nohup
+    log "INFO" "Starting background execution..."
+    
+    # Use nohup and redirect output to log file
+    if command -v nohup >/dev/null 2>&1; then
+        nohup "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        WRAPPER_PID=$!
+        log "SUCCESS" "Background process started with PID: $WRAPPER_PID"
+    elif command -v setsid >/dev/null 2>&1; then
+        setsid "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        WRAPPER_PID=$!
+        log "SUCCESS" "Background process started with PID: $WRAPPER_PID"
+    else
+        # Fallback to simple background execution
+        "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        WRAPPER_PID=$!
+        log "WARNING" "Started without nohup/setsid (PID: $WRAPPER_PID)"
+    fi
+    
+    echo ""
+    echo "To view the log in real-time, run:"
+    echo "  tail -f $LOG_FILE"
+    echo ""
+    echo "The script is now running in the background."
+    echo "You can safely disconnect from SSH."
+    echo ""
+    
+    exit 0
+}
 
 # Functions
 invoke_intro() {
@@ -58,6 +165,12 @@ invoke_intro() {
     }
 
 collect_user_preferences() {
+    # If running in wrapped mode, load from saved environment
+    if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
+        log "INFO" "Running in wrapped execution mode - using saved preferences"
+        return 0
+    fi
+    
     log "INFO" "Collecting user preferences before starting the update process"
     echo ""
 
@@ -564,6 +677,14 @@ invoke_outro() {
         tailscale set --ssh --accept-risk=lose-ssh
         log "SUCCESS" "Tailscale SSH support enabled."
     fi
+    
+    # Clean up wrapper files if running in wrapped mode
+    if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
+        log "INFO" "Cleaning up wrapper files"
+        [ -f "$ENV_FILE" ] && rm -f "$ENV_FILE"
+        [ -f "$WRAPPER_SCRIPT" ] && rm -f "$WRAPPER_SCRIPT"
+        log "SUCCESS" "Wrapper cleanup complete"
+    fi
 }
 
 invoke_help() {
@@ -578,6 +699,7 @@ invoke_help() {
     printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
     printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
     printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
+    printf "  \033[93m--background\033[0m         \033[97mRun in background mode (survives SSH disconnection)\033[0m\n"
     printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
     printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
     printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
@@ -585,6 +707,12 @@ invoke_help() {
 }
 
 invoke_update() {
+    # Skip update check if running in wrapped mode
+    if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
+        log "INFO" "Running in wrapped mode - skipping update check"
+        return 0
+    fi
+    
     log "INFO" "Checking for script updates"
     local update_url="$UPDATE_URL"
     if [ "$TESTING" -eq 1 ]; then
@@ -826,6 +954,12 @@ for arg in "$@"; do
     --ssh)
         ENABLE_SSH=1
         ;;
+    --background)
+        BACKGROUND_MODE=1
+        ;;
+    --wrapped)
+        WRAPPED_EXECUTION=1
+        ;;
     *)
         echo "Unknown argument: $arg"
         invoke_help
@@ -835,6 +969,17 @@ for arg in "$@"; do
 done
 
 # Main
+# Check if running in wrapped mode - if so, load environment
+if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
+    load_environment
+fi
+
+# Check if background mode is requested and not already wrapped
+if [ "$BACKGROUND_MODE" -eq 1 ] && [ "$WRAPPED_EXECUTION" -eq 0 ]; then
+    invoke_wrapper
+    # invoke_wrapper will exit, so we never reach here
+fi
+
 # Check if --restore flag is used, if yes, restore tailscale
 if [ "$RESTORE" -eq 1 ]; then
     restore

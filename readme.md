@@ -73,6 +73,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--no-download`       | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`.                                               |
 | `--no-tiny`           | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers.                                       |
 | `--select-release`    | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported!                      |
+| `--background`        | Runs script in background mode, survives SSH disconnection. Logs to `/tmp/tailscale-update.log`. Recommended when using `--ssh`! |
 | `--testing`           | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
 | `--ssh`               | Enables Tailscale SSH feature after installation.                                                                                |
 | `--log`               | Shows timestamps in all log messages. Useful for debugging and tracking execution time.                                          |
@@ -82,6 +83,27 @@ The `update-tailscale.sh` script supports the following arguments:
 ---
 
 ## 📚 Usage Examples
+
+### Background Mode (Recommended for SSH over Tailscale)
+
+Run the script in background mode to prevent interruption when Tailscale restarts:
+
+```bash
+wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh --background --force
+```
+
+This is especially useful when:
+- Connected via Tailscale SSH (prevents session termination)
+- Running over an unstable connection
+- Enabling Tailscale SSH with `--ssh` flag
+
+Monitor the background execution:
+
+```bash
+tail -f /tmp/tailscale-update.log
+```
+
+> **💡 Tip:** The script automatically saves your preferences and continues running even if SSH disconnects!
 
 ### Testing/Prerelease Versions
 
@@ -164,7 +186,15 @@ The script automatically adds `--stateful-filtering=false` to the `gl_tailscale`
 
 If you agree to enable Tailscale SSH during installation (manually or by using `--ssh`), the script will automatically configure Tailscale SSH after updating. You can read more about Tailscale SSH [here](https://tailscale.com/kb/1193/tailscale-ssh).
 
-**⚠️ Warning:** If you are connected to your router via Tailscale SSH, you will be disconnected when SSH support is enabled. This might cause the script to terminate prematurely. It is recommended to run the script via local SSH or via GoodCloud SSH terminal.
+**⚠️ Warning:** If you are connected to your router via Tailscale SSH, you will be disconnected when SSH support is enabled. This might cause the script to terminate prematurely.
+
+**💡 Solution:** Use the `--background` flag to run the script in background mode, which will continue execution even if your SSH session disconnects:
+
+```bash
+sh update-tailscale.sh --background --ssh --force
+```
+
+Alternatively, run the script via local SSH or via GoodCloud SSH terminal.
 
 ### 📦 Tiny-Tailscale
 
