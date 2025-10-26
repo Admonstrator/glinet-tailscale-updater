@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-10-23
-SCRIPT_VERSION="2025.10.26.01"
+SCRIPT_VERSION="2025.10.26.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -331,9 +331,7 @@ compress_binaries() {
 
 install_tailscale() {
     # Stop tailscale
-    log "INFO" "Stopping tailscale"
-    /etc/init.d/tailscale stop 2>/dev/null
-    sleep 5
+    stop_tailscale
     # Moving tailscale to /usr/sbin
     log "INFO" "Moving tailscale to /usr/sbin"
     # Check if tailscale binary is present
@@ -354,9 +352,7 @@ install_tailscale() {
 
 install_tiny_tailscale() {
     # Stop tailscale
-    log "INFO" "Stopping tailscale"
-    /etc/init.d/tailscale stop 2>/dev/null
-    sleep 5
+    stop_tailscale
     # Moving tailscale to /usr/sbin
     log "INFO" "Moving tailscale to /usr/sbin"
     # Check if tailscale binary is present
@@ -420,7 +416,14 @@ upgrade_persistance() {
 }
 
 restore() {
-    printf "\033[31mWARNING: This will restore the tailscale to factory default!\033[0m\n"
+    if [ ! -f "/rom/usr/sbin/tailscale" ] || [ ! -f "/rom/usr/sbin/tailscaled" ]; then
+        log "ERROR" "Cannot restore to factory default!"
+        log "ERROR" "tailscale binaries (tailscale, tailscaled) not found in /rom."
+        log "ERROR" "This happens if you are not using GL.iNet firmware or running the script on a non-GL.iNet device."
+        log "ERROR" "You might need to use --force --select-release to install a specific version."
+        exit 1
+    fi
+    printf "\033[31mWARNING: This will restore the tailscale binary to factory default!\033[0m\n"
     printf "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m\n"
     printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
     printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
@@ -432,8 +435,7 @@ restore() {
         read -r answer_restore
     fi
     if [ "$answer_restore" != "${answer_restore#[Yy]}" ]; then
-        log "INFO" "Restoring tailscale"
-        /etc/init.d/tailscale stop 2>/dev/null
+        stop_tailscale
         sleep 5
         if [ -f "/usr/sbin/tailscale" ]; then
             rm /usr/sbin/tailscale
@@ -452,15 +454,16 @@ restore() {
             cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
         else
             log "ERROR" "tailscaled binary not found in /rom. Exiting"
+            exit 1
         fi
-        if [ "$IS_GLINET" -eq 1 ] && [ -f "/rom/usr/bin/gl_tailscale" ]; then
-            cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
-            log "SUCCESS" "gl_tailscale script restored"
-        elif [ "$IS_GLINET" -eq 1 ]; then
-            log "WARNING" "gl_tailscale script not found in /rom"
+        if [ -n "$IS_GLINET" ] && [ "$IS_GLINET" -eq 1 ]; then
+            if [ -f "/rom/usr/bin/gl_tailscale" ]; then
+                cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
+                log "SUCCESS" "gl_tailscale script restored"
+            else
+                log "WARNING" "gl_tailscale script not found in /rom"
+            fi
         fi
-        log "INFO" "Restarting tailscale Might or might not work"
-        /etc/init.d/tailscale start 2>/dev/null
         # Remove from /etc/sysupgrade.conf
         log "INFO" "Removing entries from /etc/sysupgrade.conf"
         sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
@@ -468,6 +471,9 @@ restore() {
         sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
         sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
         log "SUCCESS" "Tailscale restored to factory default."
+        log "WARNING" "Restarting tailscale might or might not work"
+        log "WARNING" "You might need to re-authenticate your device"
+        start_tailscale
     else
         log "SUCCESS" "Ok, see you next time!"
         exit 1
@@ -542,13 +548,38 @@ invoke_modify_script() {
 }
 
 restart_tailscale() {
-    log "INFO" "Restarting tailscale"
-    # Only on GL.iNet routers, use gl_tailscale to restart
-    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
-        /usr/bin/gl_tailscale restart 2>/dev/null
-        return
+    stop_tailscale
+    start_tailscale
+}
+
+start_tailscale() {
+    log "INFO" "Starting tailscale"
+    # Only on GL.iNet routers, use gl_tailscale to start
+    if [ -n "$IS_GLINET" ] && [ "$IS_GLINET" -eq 1 ]; then
+        if [ -f "/usr/bin/gl_tailscale" ]; then
+            /usr/bin/gl_tailscale start 2>/dev/null
+            sleep 5
+            return
+        fi
     else
-        /etc/init.d/tailscale restart 2>/dev/null
+        /etc/init.d/tailscale start 2>/dev/null
+        sleep 5
+        return
+    fi
+}
+
+stop_tailscale() {
+    log "INFO" "Stopping tailscale"
+    # Only on GL.iNet routers, use gl_tailscale to stop
+    if [ -n "$IS_GLINET" ] && [ "$IS_GLINET" -eq 1 ]; then
+        if [ -f "/usr/bin/gl_tailscale" ]; then
+            /usr/bin/gl_tailscale stop 2>/dev/null
+            sleep 5
+            return
+        fi
+    else
+        /etc/init.d/tailscale stop 2>/dev/null
+        sleep 5
         return
     fi
 }
