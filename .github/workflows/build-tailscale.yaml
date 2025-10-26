@@ -167,7 +167,21 @@ jobs:
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
       - name: Create version file
         run: |
-          echo "${{ env.TAG }}" > "version.txt"
+          # Get version information to create custom version
+          eval `CGO_ENABLED=0 go run ./cmd/mkversion`
+          
+          # Generate custom build number based on GitHub run number, or use timestamp if unavailable
+          if [ -n "${GITHUB_RUN_NUMBER}" ]; then
+            CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          else
+            CUSTOM_BUILD_NUMBER="$(date +%s)"
+          fi
+          CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
+          
+          # Append custom version suffix to Tailscale version
+          VERSION_SHORT_CUSTOM="${VERSION_SHORT}${CUSTOM_VERSION_SUFFIX}"
+          
+          echo "${VERSION_SHORT_CUSTOM}" > "version.txt"
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
         uses: actions/checkout@v4
         with:
