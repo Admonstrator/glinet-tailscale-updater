@@ -1,9 +1,6 @@
 name: Build Prerelease Tailscale binary
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - testing
 env:
   SOFTWARE_NAME: "Tailscale"
   FILE_NAME: "tailscaled"
@@ -71,6 +68,21 @@ jobs:
           # Get version information
           eval `CGO_ENABLED=0 go run ./cmd/mkversion`
           
+          # Generate custom build number based on GitHub run number, or use timestamp if unavailable
+          if [ -n "${GITHUB_RUN_NUMBER}" ]; then
+            CUSTOM_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          else
+            CUSTOM_BUILD_NUMBER="$(date +%s)"
+          fi
+          CUSTOM_VERSION_SUFFIX="-tiny.by.admon.${CUSTOM_BUILD_NUMBER}"
+          
+          # Append custom version suffix to Tailscale version
+          VERSION_SHORT_CUSTOM="${VERSION_SHORT}${CUSTOM_VERSION_SUFFIX}"
+          VERSION_LONG_CUSTOM="${VERSION_LONG}${CUSTOM_VERSION_SUFFIX}"
+          
+          echo "Original Tailscale version: ${VERSION_SHORT}"
+          echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
+          
           # Generate small binary tags by removing unneeded features for routers
           # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
           # Remove desktop/enterprise features that aren't needed on routers
@@ -84,8 +96,8 @@ jobs:
           # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
           BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
           
-          # Set ldflags with version info and stripping
-          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG} -X tailscale.com/version.shortStamp=${VERSION_SHORT}"
+          # Set ldflags with custom version info and stripping
+          LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
           
           # Build the binary
           if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
@@ -154,18 +166,14 @@ jobs:
       - name: Create version file
         run: |
           echo "${{ env.TAG }}" > "version.txt"
-      - name: Checkout repository for release management
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.REPO_SMALL }}
       - name: Delete existing prerelease if exists
         run: |
           # Check if prerelease tag exists and delete it
           if gh release view prerelease --repo ${{ env.REPO_SMALL }} >/dev/null 2>&1; then
             echo "Deleting existing prerelease"
             gh release delete prerelease --repo ${{ env.REPO_SMALL }} --yes
-            git push --delete origin prerelease || true
           fi
+          gh api -X DELETE "repos/${{ env.REPO_SMALL }}/git/refs/tags/prerelease" >/dev/null 2>&1 || echo "No prerelease Git ref to delete"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Prerelease
