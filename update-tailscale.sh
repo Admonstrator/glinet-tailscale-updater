@@ -118,19 +118,15 @@ invoke_wrapper() {
     # Start the wrapped script in background with nohup
     log "INFO" "Starting background execution..."
     
-    # Determine which method to use for background execution
-    BACKGROUND_CMD=""
+    # Launch the wrapped script with appropriate method
     if command -v nohup >/dev/null 2>&1; then
-        BACKGROUND_CMD="nohup"
-    elif command -v setsid >/dev/null 2>&1; then
-        BACKGROUND_CMD="setsid"
-    fi
-    
-    # Launch the wrapped script
-    if [ -n "$BACKGROUND_CMD" ]; then
-        $BACKGROUND_CMD "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        nohup "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
         WRAPPER_PID=$!
-        log "SUCCESS" "Background process started with PID: $WRAPPER_PID (using $BACKGROUND_CMD)"
+        log "SUCCESS" "Background process started with PID: $WRAPPER_PID (using nohup)"
+    elif command -v setsid >/dev/null 2>&1; then
+        setsid "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
+        WRAPPER_PID=$!
+        log "SUCCESS" "Background process started with PID: $WRAPPER_PID (using setsid)"
     else
         # Fallback to simple background execution
         "$WRAPPER_SCRIPT" --wrapped >> "$LOG_FILE" 2>&1 &
@@ -691,14 +687,31 @@ invoke_outro() {
     if [ "$WRAPPED_EXECUTION" -eq 1 ]; then
         log "INFO" "Cleaning up wrapper files"
         # Validate paths before deletion to ensure they're in /tmp
-        if [ -f "$ENV_FILE" ] && echo "$ENV_FILE" | grep -q "^/tmp/"; then
-            rm -f "$ENV_FILE"
-            log "SUCCESS" "Removed environment file: $ENV_FILE"
-        fi
-        if [ -f "$WRAPPER_SCRIPT" ] && echo "$WRAPPER_SCRIPT" | grep -q "^/tmp/"; then
-            rm -f "$WRAPPER_SCRIPT"
-            log "SUCCESS" "Removed wrapper script: $WRAPPER_SCRIPT"
-        fi
+        # Using case pattern matching for robust path validation
+        case "$ENV_FILE" in
+            /tmp/*)
+                if [ -f "$ENV_FILE" ]; then
+                    rm -f "$ENV_FILE"
+                    log "SUCCESS" "Removed environment file: $ENV_FILE"
+                fi
+                ;;
+            *)
+                log "WARNING" "Skipping cleanup of ENV_FILE - path outside /tmp: $ENV_FILE"
+                ;;
+        esac
+        
+        case "$WRAPPER_SCRIPT" in
+            /tmp/*)
+                if [ -f "$WRAPPER_SCRIPT" ]; then
+                    rm -f "$WRAPPER_SCRIPT"
+                    log "SUCCESS" "Removed wrapper script: $WRAPPER_SCRIPT"
+                fi
+                ;;
+            *)
+                log "WARNING" "Skipping cleanup of WRAPPER_SCRIPT - path outside /tmp: $WRAPPER_SCRIPT"
+                ;;
+        esac
+        
         log "SUCCESS" "Wrapper cleanup complete"
     fi
 }
