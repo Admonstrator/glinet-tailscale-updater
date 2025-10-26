@@ -173,8 +173,7 @@ jobs:
             echo "Deleting existing prerelease"
             gh release delete prerelease --repo ${{ env.REPO_SMALL }} --yes
           fi
-          gh api -X DELETE "repos/${{ env.REPO_SMALL }}/git/refs/tags/prerelease" >/dev/null 2>&1 || \
-            echo "No prerelease Git ref to delete"
+          gh api -X DELETE "repos/${{ env.REPO_SMALL }}/git/refs/tags/prerelease" >/dev/null 2>&1 || echo "No prerelease Git ref to delete"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Prerelease
