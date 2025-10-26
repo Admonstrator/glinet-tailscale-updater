@@ -118,10 +118,12 @@ jobs:
           name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
           path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
       - name: Upload version file
+        if: matrix.platform == 'amd64'
         uses: actions/upload-artifact@v4
         with:
-          name: version.txt
-          path: version.txt 
+          name: version-file
+          path: ./version.txt
+
   publish:
     runs-on: ubuntu-latest
     permissions:
@@ -136,21 +138,30 @@ jobs:
       - name: Get UPX latest version
         id: get-upx-version
         run: |
-          echo "UPX_VERSION=$(
+          upx_version=$(
             curl -s https://api.github.com/repos/upx/upx/releases/latest \
             | jq -r '.tag_name' \
             | cut -c 2-
-          )" >> "$GITHUB_ENV"
+          )
+          echo "UPX_VERSION=${upx_version}" >> "$GITHUB_ENV"
+          echo "version=${upx_version}" >> "$GITHUB_OUTPUT"
       - name: Download UPX
+        env:
+          UPX_VERSION: ${{ steps.get-upx-version.outputs.version }}
         run: |
-          wget -q "https://github.com/upx/upx/releases/latest/download/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
-          tar --to-stdout -xf "upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz" \
-            "upx-${{ env.UPX_VERSION }}-amd64_linux/upx" > "${PWD}/upx"
+          wget -q "https://github.com/upx/upx/releases/latest/download/upx-${UPX_VERSION}-amd64_linux.tar.xz"
+          tar --to-stdout -xf "upx-${UPX_VERSION}-amd64_linux.tar.xz" \
+            "upx-${UPX_VERSION}-amd64_linux/upx" > "${PWD}/upx"
           chmod -v +x "${PWD}/upx"
       - name: Download built binaries
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ env.FILE_NAME }}-*
+      - name: Download version file
+        uses: actions/download-artifact@v4
+        with:
+          name: version-file
+          path: .
       - name: Moving files
         run: |
           for dir in "${{ env.FILE_NAME }}-"*; do
