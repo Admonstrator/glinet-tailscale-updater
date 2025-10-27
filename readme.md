@@ -181,7 +181,9 @@ The script supports two mutually exclusive exit node modes via UCI configuration
 
 The script automatically ensures these modes are mutually exclusive. When you enable exit node support with `--exit-node`, it defaults to advertising this router as an exit node (server mode). You can later switch to client mode by setting the `exit_node_ip` via UCI and restarting Tailscale with `gl_tailscale restart`.
 
-**Note:** When switching between modes, the script automatically removes conflicting parameters (like `--advertise-routes`) to ensure proper operation.
+**Important Notes:**
+- **Server Mode**: When advertising as an exit node, `--advertise-routes` is automatically removed to prevent conflicts, as exit nodes should not advertise specific subnet routes.
+- **Client Mode**: When using another exit node, `--advertise-routes` is preserved, allowing your local networks to remain accessible via Tailscale while routing internet traffic through the exit node.
 
 ### 📦 Tiny-Tailscale
 
