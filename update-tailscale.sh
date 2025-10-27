@@ -649,8 +649,14 @@ invoke_modify_script() {
         else
             log "WARNING" "gl_tailscale script not found in /rom, proceeding with existing script"
         fi
-        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false 
-        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|g' /usr/bin/gl_tailscale
+        # Search for param="--advertise-routes=$routes" and add critical flags for OpenWrt/GL.iNet
+        # --stateful-filtering=false: Required for exit node compatibility
+        # --netfilter-mode=off: Let OpenWrt manage firewall rules (prevents conflicts)
+        # --snat-subnet-routes=true: Enable source NAT for proper routing (critical for exit nodes)
+        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false --netfilter-mode=off --snat-subnet-routes=true"|g' /usr/bin/gl_tailscale
+        
+        # Also handle the case where param is initially empty (no routes configured)
+        sed -i 's|param=""|param="--stateful-filtering=false --netfilter-mode=off --snat-subnet-routes=true"|g' /usr/bin/gl_tailscale
 
         # Use the pre-collected user preference for SSH
         if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then

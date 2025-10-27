@@ -154,12 +154,23 @@ sh update-tailscale.sh --log --ascii
 
 ## 🔍 Key Features Explained
 
-### 🎯 Tailscale Stateful Filtering
+### 🎯 OpenWrt/GL.iNet Tailscale Optimizations
 
-The script automatically adds `--stateful-filtering=false` to the `gl_tailscale` script. This is required for proper exit node functionality on GL.iNet routers. The modification is:
-- ✅ Applied automatically
-- ✅ Permanent (survives firmware upgrades)
-- ✅ No manual configuration needed
+The script automatically adds critical flags to the `gl_tailscale` script for proper exit node and subnet routing functionality:
+
+**Flags Added:**
+- `--stateful-filtering=false` - Required for exit node compatibility
+- `--netfilter-mode=off` - Lets OpenWrt manage firewall rules (prevents conflicts)
+- `--snat-subnet-routes=true` - Enables source NAT for proper routing (critical for exit nodes to work)
+
+**Why These Are Important:**
+- **netfilter-mode=off**: GL.iNet routers use OpenWrt's firewall management. Letting Tailscale manage iptables/netfilter causes conflicts and routing issues.
+- **snat-subnet-routes=true**: Without SNAT, LAN devices behind your GL.iNet router cannot properly respond to Tailscale IP addresses. This is why exit node traffic fails to forward.
+
+These modifications are:
+- ✅ Applied automatically during installation
+- ✅ Permanent (survive firmware upgrades)
+- ✅ Essential for exit node functionality on OpenWrt-based routers
 
 ### 🔐 Tailscale SSH ready
 
