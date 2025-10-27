@@ -649,8 +649,14 @@ invoke_modify_script() {
         else
             log "WARNING" "gl_tailscale script not found in /rom, proceeding with existing script"
         fi
-        # Search for param="--advertise-routes=$routes" and add --stateful-filtering=false 
-        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|g' /usr/bin/gl_tailscale
+        # Search for param="--advertise-routes=$routes" and add critical flags for OpenWrt/GL.iNet
+        # --stateful-filtering=false: Required for exit node compatibility
+        # --netfilter-mode=off: Let OpenWrt manage firewall rules (prevents conflicts)
+        # --snat-subnet-routes=true: Enable source NAT for proper routing (critical for exit nodes)
+        sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false --netfilter-mode=off --snat-subnet-routes=true"|g' /usr/bin/gl_tailscale
+        
+        # Also handle the case where param is initially empty (no routes configured)
+        sed -i 's|param=""|param="--stateful-filtering=false --netfilter-mode=off --snat-subnet-routes=true"|g' /usr/bin/gl_tailscale
 
         # Use the pre-collected user preference for SSH
         if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
@@ -693,7 +699,9 @@ invoke_modify_script() {
                 uci set tailscale.settings.exit_node_enabled=1
                 uci commit tailscale
                 # Insert exit node check snippet before the tailscale up command
-                sed -i '/timeout 10 \/usr\/sbin\/tailscale up/i\\n        ### Added by glinet-tailscale-updater by Admonstrator ###\n        exit_node_enabled=$(uci -q get tailscale.settings.exit_node_enabled)\n        if [ "$exit_node_enabled" = "1" ]; then\n            param=$(echo "$param" | sed -E "s/--advertise-routes=[^ ]*//g; s/--exit-node=[^ ]*//g; s/--exit-node-allow-lan-access//g")\n            param="$param --advertise-exit-node"\n        fi\n        ### End of addition by glinet-tailscale-updater ###' /usr/bin/gl_tailscale
+                # This snippet handles both "use exit node" (client) and "advertise exit node" (server) modes
+                # They are mutually exclusive: if exit_node_ip is set, use client mode; otherwise, use server mode
+                sed -i '/timeout 10 \/usr\/sbin\/tailscale up/i\\n        ### Added by glinet-tailscale-updater by Admonstrator ###\n        exit_node_enabled=$(uci -q get tailscale.settings.exit_node_enabled)\n        exit_node_ip=$(uci -q get tailscale.settings.exit_node_ip)\n        if [ "$exit_node_enabled" = "1" ]; then\n            if [ -n "$exit_node_ip" ]; then\n                # CLIENT MODE: Use another exit node (keep advertise-routes for subnet routing)\n                param=$(echo "$param" | sed -E "s/--advertise-exit-node//g; s/--exit-node=[^ ]*//g; s/--exit-node-allow-lan-access//g")\n                param="$param --exit-node=$exit_node_ip --exit-node-allow-lan-access"\n            else\n                # SERVER MODE: Advertise as exit node (remove advertise-routes as they conflict)\n                param=$(echo "$param" | sed -E "s/--advertise-routes=[^ ]*//g; s/--advertise-exit-node//g; s/--exit-node=[^ ]*//g; s/--exit-node-allow-lan-access//g")\n                param="$param --advertise-exit-node"\n            fi\n        fi\n        ### End of addition by glinet-tailscale-updater ###' /usr/bin/gl_tailscale
                 # Verify that the snippet was inserted successfully
                 if grep -q "exit_node_enabled=\$(uci -q get tailscale.settings.exit_node_enabled)" /usr/bin/gl_tailscale; then
                     log "SUCCESS" "Exit node support enabled in gl_tailscale script"

@@ -75,6 +75,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--select-release`    | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported!                      |
 | `--testing`           | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
 | `--ssh`               | Enables Tailscale SSH feature after installation.                                                                                |
+| `--exit-node`         | Enables exit node support automatically (advertises this router as an exit node).                                                |
 | `--log`               | Shows timestamps in all log messages. Useful for debugging and tracking execution time.                                          |
 | `--ascii`             | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals.                   |
 | `--help`              | Displays help message with all available arguments.                                                                              |
@@ -153,18 +154,47 @@ sh update-tailscale.sh --log --ascii
 
 ## 🔍 Key Features Explained
 
-### 🎯 Tailscale Stateful Filtering
+### 🎯 OpenWrt/GL.iNet Tailscale Optimizations
 
-The script automatically adds `--stateful-filtering=false` to the `gl_tailscale` script. This is required for proper exit node functionality on GL.iNet routers. The modification is:
-- ✅ Applied automatically
-- ✅ Permanent (survives firmware upgrades)
-- ✅ No manual configuration needed
+The script automatically adds critical flags to the `gl_tailscale` script for proper exit node and subnet routing functionality:
+
+**Flags Added:**
+- `--stateful-filtering=false` - Required for exit node compatibility
+- `--netfilter-mode=off` - Lets OpenWrt manage firewall rules (prevents conflicts)
+- `--snat-subnet-routes=true` - Enables source NAT for proper routing (critical for exit nodes to work)
+
+**Why These Are Important:**
+- **netfilter-mode=off**: GL.iNet routers use OpenWrt's firewall management. Letting Tailscale manage iptables/netfilter causes conflicts and routing issues.
+- **snat-subnet-routes=true**: Without SNAT, LAN devices behind your GL.iNet router cannot properly respond to Tailscale IP addresses. This is why exit node traffic fails to forward.
+
+These modifications are:
+- ✅ Applied automatically during installation
+- ✅ Permanent (survive firmware upgrades)
+- ✅ Essential for exit node functionality on OpenWrt-based routers
 
 ### 🔐 Tailscale SSH ready
 
 If you agree to enable Tailscale SSH during installation (manually or by using `--ssh`), the script will automatically configure Tailscale SSH after updating. You can read more about Tailscale SSH [here](https://tailscale.com/kb/1193/tailscale-ssh).
 
 **⚠️ Warning:** If you are connected to your router via Tailscale SSH, you will be disconnected when SSH support is enabled. This might cause the script to terminate prematurely. It is recommended to run the script via local SSH or via GoodCloud SSH terminal.
+
+### 🚪 Exit Node Configuration
+
+The script supports two mutually exclusive exit node modes via UCI configuration:
+
+1. **Advertise as Exit Node (Server Mode)**: Your router acts as an exit node, allowing other devices on your Tailnet to route their internet traffic through it.
+   - Set: `uci set tailscale.settings.exit_node_enabled=1`
+   - Do NOT set `tailscale.settings.exit_node_ip`
+
+2. **Use Exit Node (Client Mode)**: Your router routes its traffic through another exit node on your Tailnet.
+   - Set: `uci set tailscale.settings.exit_node_enabled=1`
+   - Set: `uci set tailscale.settings.exit_node_ip=<IP_ADDRESS>` (e.g., `100.64.0.1`)
+
+The script automatically ensures these modes are mutually exclusive. When you enable exit node support with `--exit-node`, it defaults to advertising this router as an exit node (server mode). You can later switch to client mode by setting the `exit_node_ip` via UCI and restarting Tailscale with `gl_tailscale restart`.
+
+**Important Notes:**
+- **Server Mode**: When advertising as an exit node, `--advertise-routes` is automatically removed to prevent conflicts, as exit nodes should not advertise specific subnet routes.
+- **Client Mode**: When using another exit node, `--advertise-routes` is preserved, allowing your local networks to remain accessible via Tailscale while routing internet traffic through the exit node.
 
 ### 📦 Tiny-Tailscale
 
