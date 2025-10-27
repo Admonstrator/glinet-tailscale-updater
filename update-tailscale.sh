@@ -25,8 +25,10 @@ SHOW_LOG=0
 ASCII_MODE=0
 TESTING=0
 ENABLE_SSH=0
+ENABLE_EXIT_NODE=0
 USER_WANTS_UPX=""
 USER_WANTS_SSH=""
+USER_WANTS_EXIT_NODE=""
 USER_WANTS_PERSISTENCE=""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -102,6 +104,28 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
             read -r USER_WANTS_SSH
+            echo ""
+        fi
+    fi
+
+    # Ask about exit node (only for GL.iNet routers)
+    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
+        if [ "$ENABLE_EXIT_NODE" -eq 1 ]; then
+            USER_WANTS_EXIT_NODE="y"
+            log "INFO" "--exit-node flag is used. This router will be configured as an exit node"
+        elif [ "$FORCE" -eq 1 ]; then
+            USER_WANTS_EXIT_NODE="n"
+            log "INFO" "--force flag is used. Exit node will not be enabled"
+        else
+            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+            echo "| Exit Node                                                                      |"
+            echo "| This configures your router as a Tailscale exit node.                          |"
+            echo "| Other devices on your Tailnet can route their internet traffic through it.     |"
+            echo "| See https://tailscale.com/kb/1103/exit-nodes/ for more information.            |"
+            echo "| This setting can be changed later via UCI config.                              |"
+            echo "└────────────────────────────────────────────────────────────────────────────────┘"
+            printf "> \033[36mDo you want to use this router as an exit node?\033[0m (y/N) "
+            read -r USER_WANTS_EXIT_NODE
             echo ""
         fi
     fi
@@ -493,6 +517,7 @@ restore() {
     fi
     printf "\033[31mWARNING: This will restore the tailscale binary to factory default!\033[0m\n"
     printf "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m\n"
+    printf "\033[31mTailscale will be disabled! Make sure to use SSH without Tailscale!\033[0m\n"
     printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
     printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
     printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
@@ -503,6 +528,9 @@ restore() {
         read -r answer_restore
     fi
     if [ "$answer_restore" != "${answer_restore#[Yy]}" ]; then
+        log "INFO" "Disabling tailscale"
+        uci set tailscale.settings.enabled='0'
+        uci commit tailscale
         stop_tailscale
         sleep 5
         if [ -f "/usr/sbin/tailscale" ]; then
@@ -578,6 +606,7 @@ invoke_help() {
     printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
     printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
     printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
+    printf "  \033[93m--exit-node\033[0m          \033[97mEnable exit node support automatically\033[0m\n"
     printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
     printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
     printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
@@ -627,8 +656,8 @@ invoke_modify_script() {
         if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
             log "INFO" "Enabling Tailscale SSH support"
             # Check if the pattern to insert after exists
-            if ! grep -q "add_guest_policy_route" /usr/bin/gl_tailscale; then
-                log "ERROR" "Could not find 'add_guest_policy_route' in gl_tailscale script"
+            if ! grep -q "timeout 10 /usr/sbin/tailscale up" /usr/bin/gl_tailscale; then
+                log "ERROR" "Could not find 'timeout 10 /usr/sbin/tailscale up' in gl_tailscale script"
                 log "ERROR" "SSH support cannot be enabled automatically"
                 log "INFO" "You may need to add it manually"
             else
@@ -636,7 +665,7 @@ invoke_modify_script() {
                 uci set tailscale.settings.ssh_enabled=1
                 uci commit tailscale
                 # Insert SSH check snippet before the tailscale up command
-                sed -i '/add_guest_policy_route/a\\n        ssh_enabled=$(uci -q get tailscale.settings.ssh_enabled)\n        if [ "$ssh_enabled" = "1" ]; then\n            param="$param --ssh"\n        fi' /usr/bin/gl_tailscale
+                sed -i '/imeout 10 \/usr\/sbin\/tailscale up/i\\n        ### Added by glinet-tailscale-updater by Admonstrator ###\n        ssh_enabled=$(uci -q get tailscale.settings.ssh_enabled)\n        if [ "$ssh_enabled" = "1" ]; then\n            param="$param --ssh"\n        fi\n        ### End of addition by glinet-tailscale-updater ###' /usr/bin/gl_tailscale
                 # Verify that the snippet was inserted successfully
                 if grep -q "ssh_enabled=\$(uci -q get tailscale.settings.ssh_enabled)" /usr/bin/gl_tailscale; then
                     log "SUCCESS" "SSH support enabled in gl_tailscale script"
@@ -648,6 +677,34 @@ invoke_modify_script() {
         else
             log "INFO" "SSH support not enabled"
             uci set tailscale.settings.ssh_enabled=0
+            uci commit tailscale
+        fi
+
+        # Use the pre-collected user preference for exit node
+        if [ "$USER_WANTS_EXIT_NODE" != "${USER_WANTS_EXIT_NODE#[Yy]}" ]; then
+            log "INFO" "Enabling exit node support"
+            # Check if the pattern to insert after exists
+            if ! grep -q "timeout 10 /usr/sbin/tailscale up" /usr/bin/gl_tailscale; then
+                log "ERROR" "Could not find 'timeout 10 /usr/sbin/tailscale up' in gl_tailscale script"
+                log "ERROR" "Exit node support cannot be enabled automatically"
+                log "INFO" "You may need to add it manually"
+            else
+                # Set UCI config value
+                uci set tailscale.settings.exit_node_enabled=1
+                uci commit tailscale
+                # Insert exit node check snippet before the tailscale up command
+                sed -i '/timeout 10 \/usr\/sbin\/tailscale up/i\\n        ### Added by glinet-tailscale-updater by Admonstrator ###\n        exit_node_enabled=$(uci -q get tailscale.settings.exit_node_enabled)\n        if [ "$exit_node_enabled" = "1" ]; then\n            param=$(echo "$param" | sed -E "s/--advertise-routes=[^ ]*//g; s/--exit-node=[^ ]*//g; s/--exit-node-allow-lan-access//g")\n            param="$param --advertise-exit-node"\n        fi\n        ### End of addition by glinet-tailscale-updater ###' /usr/bin/gl_tailscale
+                # Verify that the snippet was inserted successfully
+                if grep -q "exit_node_enabled=\$(uci -q get tailscale.settings.exit_node_enabled)" /usr/bin/gl_tailscale; then
+                    log "SUCCESS" "Exit node support enabled in gl_tailscale script"
+                else
+                    log "ERROR" "Failed to insert exit node snippet into gl_tailscale script"
+                    log "INFO" "You may need to add it manually"
+                fi
+            fi
+        else
+            log "INFO" "Exit node support not enabled"
+            uci set tailscale.settings.exit_node_enabled=0
             uci commit tailscale
         fi
 
@@ -825,6 +882,9 @@ for arg in "$@"; do
         ;;
     --ssh)
         ENABLE_SSH=1
+        ;;
+    --exit-node)
+        ENABLE_EXIT_NODE=1
         ;;
     *)
         echo "Unknown argument: $arg"
