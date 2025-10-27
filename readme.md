@@ -75,6 +75,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--select-release`    | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported!                      |
 | `--testing`           | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
 | `--ssh`               | Enables Tailscale SSH feature after installation.                                                                                |
+| `--exit-node`         | Enables exit node support automatically (advertises this router as an exit node).                                                |
 | `--log`               | Shows timestamps in all log messages. Useful for debugging and tracking execution time.                                          |
 | `--ascii`             | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals.                   |
 | `--help`              | Displays help message with all available arguments.                                                                              |
@@ -165,6 +166,22 @@ The script automatically adds `--stateful-filtering=false` to the `gl_tailscale`
 If you agree to enable Tailscale SSH during installation (manually or by using `--ssh`), the script will automatically configure Tailscale SSH after updating. You can read more about Tailscale SSH [here](https://tailscale.com/kb/1193/tailscale-ssh).
 
 **⚠️ Warning:** If you are connected to your router via Tailscale SSH, you will be disconnected when SSH support is enabled. This might cause the script to terminate prematurely. It is recommended to run the script via local SSH or via GoodCloud SSH terminal.
+
+### 🚪 Exit Node Configuration
+
+The script supports two mutually exclusive exit node modes via UCI configuration:
+
+1. **Advertise as Exit Node (Server Mode)**: Your router acts as an exit node, allowing other devices on your Tailnet to route their internet traffic through it.
+   - Set: `uci set tailscale.settings.exit_node_enabled=1`
+   - Do NOT set `tailscale.settings.exit_node_ip`
+
+2. **Use Exit Node (Client Mode)**: Your router routes its traffic through another exit node on your Tailnet.
+   - Set: `uci set tailscale.settings.exit_node_enabled=1`
+   - Set: `uci set tailscale.settings.exit_node_ip=<IP_ADDRESS>` (e.g., `100.64.0.1`)
+
+The script automatically ensures these modes are mutually exclusive. When you enable exit node support with `--exit-node`, it defaults to advertising this router as an exit node (server mode). You can later switch to client mode by setting the `exit_node_ip` via UCI and restarting Tailscale with `gl_tailscale restart`.
+
+**Note:** When switching between modes, the script automatically removes conflicting parameters (like `--advertise-routes`) to ensure proper operation.
 
 ### 📦 Tiny-Tailscale
 
