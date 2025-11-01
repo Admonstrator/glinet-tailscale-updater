@@ -77,6 +77,7 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) "
             read -r USER_WANTS_UPX
+            USER_WANTS_UPX=$(echo "$USER_WANTS_UPX" | tr '[:upper:]' '[:lower:]')
             echo ""
         fi
     else
@@ -99,9 +100,10 @@ collect_user_preferences() {
             echo "| You can then SSH to your router using the Tailscale web interface.             |"
             echo "| See https://tailscale.com/kb/1193/tailscale-ssh/ for more information.         |"
             echo "| This setting can be changed later via UCI config.                              |"
-            echo "└────────────────────────────────────────────────────────────────────────────────┘"
+            echo "└────────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
             read -r USER_WANTS_SSH
+            USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr '[:upper:]' '[:lower:]')
             echo ""
         fi
     fi
@@ -121,6 +123,7 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to make the installation permanent?\033[0m (y/N) "
             read -r USER_WANTS_PERSISTENCE
+            USER_WANTS_PERSISTENCE=$(echo "$USER_WANTS_PERSISTENCE" | tr '[:upper:]' '[:lower:]')
             echo ""
         fi
     fi
@@ -131,7 +134,8 @@ collect_user_preferences() {
         printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
         printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
         read -r answer
-        if [ "$answer" != "${answer#[Yy]}" ]; then
+        answer_lower=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
             log "INFO" "Starting update process..."
             echo ""
         else
@@ -325,7 +329,7 @@ get_latest_tailscale_version() {
     fi
     log "SUCCESS" "Found tailscale binaries in: $TAILSCALE_SUBDIR_IN_TAR"
     # Use the pre-collected user preference for UPX compression
-    if [ "$USER_WANTS_UPX" != "${USER_WANTS_UPX#[Yy]}" ]; then
+    if [ "$USER_WANTS_UPX" != "${USER_WANTS_UPX#[y]}" ]; then
         log "INFO" "Compressing binaries with UPX as requested"
         compress_binaries
         if [ "$UPX_ERROR" -eq 1 ]; then
@@ -455,7 +459,7 @@ install_tiny_tailscale() {
 upgrade_persistance() {
     if [ "$IS_GLINET" -eq 1 ]; then
         # Use the pre-collected user preference for persistence
-        if [ "$USER_WANTS_PERSISTENCE" != "${USER_WANTS_PERSISTENCE#[Yy]}" ]; then
+        if [ "$USER_WANTS_PERSISTENCE" != "${USER_WANTS_PERSISTENCE#[y]}" ]; then
             log "INFO" "Making installation permanent"
             log "INFO" "Modifying /etc/sysupgrade.conf"
             if grep -q "/root/tailscale_config_backup/" /etc/sysupgrade.conf; then
@@ -502,7 +506,8 @@ restore() {
     else
         read -r answer_restore
     fi
-    if [ "$answer_restore" != "${answer_restore#[Yy]}" ]; then
+    answer_restore_lower=$(echo "$answer_restore" | tr '[:upper:]' '[:lower:]')
+    if [ "$answer_restore_lower" != "${answer_restore_lower#[y]}" ]; then
         stop_tailscale
         sleep 5
         if [ -f "/usr/sbin/tailscale" ]; then
@@ -558,7 +563,7 @@ invoke_outro() {
     
     # Show a warning that SSH will disconnect if you are conected via Tailscale SSH
     # Continue to enable Tailscale SSH if requested
-    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
+    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
         log "INFO" "Enabling Tailscale SSH support as requested"
         log "WARNING" "If you are connected to your router via Tailscale SSH, you will be disconnected now."
         tailscale set --ssh --accept-risk=lose-ssh
@@ -624,7 +629,7 @@ invoke_modify_script() {
         sed -i 's|param="--advertise-routes=$routes"|param="--advertise-routes=$routes --stateful-filtering=false"|g' /usr/bin/gl_tailscale
 
         # Use the pre-collected user preference for SSH
-        if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[Yy]}" ]; then
+        if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
             log "INFO" "Enabling Tailscale SSH support"
             # Check if the pattern to insert after exists
             if ! grep -q "add_guest_policy_route" /usr/bin/gl_tailscale; then
@@ -774,7 +779,8 @@ choose_release_label() {
         log "WARNING" "It could lead to issues and unexpected behavior!"
         log "WARNING" "Do you want to continue? (y/N)"
         read -r answer
-        if [ "$answer" != "${answer#[Yy]}" ]; then
+        answer_lower=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
             log "INFO" "Ok, continuing ..."
         else
             log "ERROR" "Ok, see you next time!"
