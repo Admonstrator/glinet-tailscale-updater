@@ -77,7 +77,7 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) "
             read -r USER_WANTS_UPX
-            USER_WANTS_UPX=$(echo "$USER_WANTS_UPX" | tr '[:upper:]' '[:lower:]')
+            USER_WANTS_UPX=$(echo "$USER_WANTS_UPX" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
             echo ""
         fi
     else
@@ -103,7 +103,7 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
             read -r USER_WANTS_SSH
-            USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr '[:upper:]' '[:lower:]')
+            USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
             echo ""
         fi
     fi
@@ -123,7 +123,7 @@ collect_user_preferences() {
             echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to make the installation permanent?\033[0m (y/N) "
             read -r USER_WANTS_PERSISTENCE
-            USER_WANTS_PERSISTENCE=$(echo "$USER_WANTS_PERSISTENCE" | tr '[:upper:]' '[:lower:]')
+            USER_WANTS_PERSISTENCE=$(echo "$USER_WANTS_PERSISTENCE" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
             echo ""
         fi
     fi
@@ -134,7 +134,7 @@ collect_user_preferences() {
         printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
         printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
         read -r answer
-        answer_lower=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        answer_lower=$(echo "$answer" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
         if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
             log "INFO" "Starting update process..."
             echo ""
@@ -506,7 +506,7 @@ restore() {
     else
         read -r answer_restore
     fi
-    answer_restore_lower=$(echo "$answer_restore" | tr '[:upper:]' '[:lower:]')
+    answer_restore_lower=$(echo "$answer_restore" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
     if [ "$answer_restore_lower" != "${answer_restore_lower#[y]}" ]; then
         stop_tailscale
         sleep 5
@@ -779,7 +779,7 @@ choose_release_label() {
         log "WARNING" "It could lead to issues and unexpected behavior!"
         log "WARNING" "Do you want to continue? (y/N)"
         read -r answer
-        answer_lower=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        answer_lower=$(echo "$answer" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
         if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
             log "INFO" "Ok, continuing ..."
         else
