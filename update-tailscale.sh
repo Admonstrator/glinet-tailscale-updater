@@ -100,7 +100,7 @@ collect_user_preferences() {
             echo "| You can then SSH to your router using the Tailscale web interface.             |"
             echo "| See https://tailscale.com/kb/1193/tailscale-ssh/ for more information.         |"
             echo "| This setting can be changed later via UCI config.                              |"
-            echo "└────────────────────────────────────────────────────────────────────────────────────┘"
+            echo "└────────────────────────────────────────────────────────────────────────────────┘"
             printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
             read -r USER_WANTS_SSH
             USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr '[:upper:]' '[:lower:]')
