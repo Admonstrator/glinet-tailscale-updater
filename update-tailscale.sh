@@ -374,7 +374,7 @@ compress_binaries() {
         UPX_ARCH="$ARCH"
     fi
 
-     wget -q -O "/tmp/upx.tar.xz" \
+    wget -q -O "/tmp/upx.tar.xz" \
         "https://github.com/upx/upx/releases/download/v${upx_version}/upx-${upx_version}-${UPX_ARCH}_linux.tar.xz"
 
     # If download fails, skip compression
