@@ -251,7 +251,7 @@ get_latest_tailscale_version_tiny() {
     # Will attempt to download the latest version of tailscale from the updater repository
     # This is the default behavior
     log "INFO" "Detecting latest tiny tailscale version"
-    TAILSCALE_VERSION_NEW=$(wget -qO- $TAILSCALE_TINY_URL/version.txt)
+    TAILSCALE_VERSION_NEW=$(wget -qO- "$TAILSCALE_TINY_URL/version.txt")
     if [ -z "$TAILSCALE_VERSION_NEW" ]; then
         log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
         exit 1
