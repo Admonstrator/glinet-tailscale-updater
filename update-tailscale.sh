@@ -269,7 +269,7 @@ get_latest_tailscale_version_tiny() {
     fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     log "INFO" "Downloading latest tailscale version"
-    wget -q -O /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
+    wget -q -O "/tmp/tailscaled-linux-$TINY_ARCH" "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
     # Check if download was successful
     if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
         log "ERROR" "Could not download tailscale. Exiting"
