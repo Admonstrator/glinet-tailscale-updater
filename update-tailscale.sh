@@ -181,10 +181,11 @@ preflight_check() {
         TINY_ARCH="amd64"
         log "SUCCESS" "Architecture: x86_64"
     elif [ "$ARCH" = "mips" ]; then
-        # Determine from OpenWrt release info if devices uses mipsle architecture
-        MIPS_ARCH=$(sed -n "s/^DISTRIB_ARCH='\(.*\)_.*'$/\1/p" /etc/openwrt_release)
-        case "$MIPS_ARCH" in
-            "mipsel")
+    # Check for specific models that use mipsle architecture
+    if [ "$IS_GLINET" -eq 1 ]; then
+        MODEL=$(grep 'machine' /proc/cpuinfo | awk -F ': ' '{print $2}')
+        case "$MODEL" in
+            "GL.iNet GL-MT1300" | "GL-MT300N-V2" | "GL-SFT1200")
                 TINY_ARCH="mipsle"
                 log "SUCCESS" "Architecture: mipsle"
                 ;;
@@ -194,6 +195,10 @@ preflight_check() {
                 ;;
         esac
     else
+        TINY_ARCH="mips"
+        log "SUCCESS" "Architecture: mips"
+    fi
+    else    
         log "ERROR" "This script only works on arm64, armv7, x86_64, mips and mipsle"
         PREFLIGHT=1
     fi
