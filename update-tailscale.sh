@@ -600,7 +600,7 @@ invoke_update() {
     if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
         log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
         log "INFO" "Updating the script ..."
-        wget -q -O /tmp/$SCRIPT_NAME "$update_url"
+        wget -q -O "/tmp/$SCRIPT_NAME" "$update_url"
         # Get current script path
         SCRIPT_PATH=$(readlink -f "$0")
         # Replace current script with updated script
