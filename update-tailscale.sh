@@ -6,7 +6,7 @@
 # Author: Admon
 # Contributor: lwbt
 # Date: 2025-11-01
-SCRIPT_VERSION="2025.11.01.01"
+SCRIPT_VERSION="2025.11.06.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -221,12 +221,12 @@ preflight_check() {
     else
         log "SUCCESS" "xz is installed."
     fi
-    # Check if curl is present
-    if ! command -v curl >/dev/null; then
-        log "ERROR" "curl is not installed. Exiting"
+    # Check if wget is present
+    if ! command -v wget >/dev/null; then
+        log "ERROR" "wget is not installed. Exiting"
         PREFLIGHT=1
     else
-        log "SUCCESS" "curl is installed."
+        log "SUCCESS" "wget is installed."
     fi
     if [ "$PREFLIGHT" -eq "1" ]; then
         log "ERROR" "Prerequisites are not met. Exiting"
@@ -251,7 +251,7 @@ get_latest_tailscale_version_tiny() {
     # Will attempt to download the latest version of tailscale from the updater repository
     # This is the default behavior
     log "INFO" "Detecting latest tiny tailscale version"
-    TAILSCALE_VERSION_NEW=$(curl -L -s $TAILSCALE_TINY_URL/version.txt)
+    TAILSCALE_VERSION_NEW=$(wget -qO- "$TAILSCALE_TINY_URL/version.txt")
     if [ -z "$TAILSCALE_VERSION_NEW" ]; then
         log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
         exit 1
@@ -269,7 +269,7 @@ get_latest_tailscale_version_tiny() {
     fi
     log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
     log "INFO" "Downloading latest tailscale version"
-    curl -L -s --output /tmp/tailscaled-linux-$TINY_ARCH "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
+    wget -q -O "/tmp/tailscaled-linux-$TINY_ARCH" "$TAILSCALE_TINY_URL/tailscaled-linux-$TINY_ARCH"
     # Check if download was successful
     if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
         log "ERROR" "Could not download tailscale. Exiting"
@@ -290,13 +290,13 @@ get_latest_tailscale_version() {
     else
         log "INFO" "Detecting latest tailscale version"
         if [ "$ARCH" = "aarch64" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
+            TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm64\.tgz' | head -n 1)
         elif [ "$ARCH" = "armv7l" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
+            TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_arm\.tgz' | head -n 1)
         elif [ "$ARCH" = "x86_64" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
+            TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
         elif [ "$ARCH" = "mips" ]; then
-            TAILSCALE_VERSION_NEW=$(curl -s https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+            TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
         fi
         if [ -z "$TAILSCALE_VERSION_NEW" ]; then
             log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
@@ -311,7 +311,7 @@ get_latest_tailscale_version() {
         fi
         log "INFO" "The latest tailscale version is: $TAILSCALE_VERSION_NEW"
         log "INFO" "Downloading latest tailscale version"
-        curl -L -s --output /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
+        wget -q -O /tmp/tailscale.tar.gz "https://pkgs.tailscale.com/stable/$TAILSCALE_VERSION_NEW"
         # Check if download was successful
     fi
     if [ ! -f "/tmp/tailscale.tar.gz" ]; then
@@ -358,7 +358,7 @@ compress_binaries() {
     fi
     log "INFO" "Getting UPX"
     upx_version="$(
-        curl -s "https://api.github.com/repos/upx/upx/releases/latest" |
+        wget -qO- "https://api.github.com/repos/upx/upx/releases/latest" |
             grep 'tag_name' |
             cut -d : -f 2 |
             tr -d '"v, '
@@ -374,7 +374,7 @@ compress_binaries() {
         UPX_ARCH="$ARCH"
     fi
 
-     curl -L -s --output "/tmp/upx.tar.xz" \
+    wget -q -O "/tmp/upx.tar.xz" \
         "https://github.com/upx/upx/releases/download/v${upx_version}/upx-${upx_version}-${UPX_ARCH}_linux.tar.xz"
 
     # If download fails, skip compression
@@ -596,11 +596,11 @@ invoke_update() {
         update_url="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
         log "INFO" "Testing mode: Using testing branch for script updates"
     fi
-    SCRIPT_VERSION_NEW=$(curl -s "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
+    SCRIPT_VERSION_NEW=$(wget -qO- "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
     if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
         log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
         log "INFO" "Updating the script ..."
-        curl -L -s --output /tmp/$SCRIPT_NAME "$update_url"
+        wget -q -O "/tmp/$SCRIPT_NAME" "$update_url"
         # Get current script path
         SCRIPT_PATH=$(readlink -f "$0")
         # Replace current script with updated script
@@ -749,7 +749,7 @@ log() {
 # Function to choose a GitHub release label
 choose_release_label() {
     log "INFO" "Fetching available release labels..."
-    available_labels=$(curl -s "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//g')
+    available_labels=$(wget -qO- "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//g')
     
     if [ -z "$available_labels" ]; then
         log "ERROR" "Could not retrieve release labels. Please check your internet connection."
