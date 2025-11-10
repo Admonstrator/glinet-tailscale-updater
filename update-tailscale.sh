@@ -841,28 +841,64 @@ setup_usb_storage() {
 
     # Install required packages
     log "INFO" "Installing required packages for USB support..."
-    opkg update --verbosity=0
-    opkg install --verbosity=0 block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
+    opkg update
+    opkg install block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
 
+    log "INFO" "Verifying e2fsprogs installation..."
     if ! command -v mke2fs >/dev/null; then
         log "ERROR" "Failed to install e2fsprogs. Cannot format USB."
+        log "ERROR" "Try running: opkg install e2fsprogs"
         exit 1
     fi
+    log "SUCCESS" "e2fsprogs installed successfully"
 
     # Load ext4 module
     log "INFO" "Loading ext4 kernel module..."
     insmod /lib/modules/*/ext4.ko 2>/dev/null
     modprobe ext4 2>/dev/null
 
-    # Unmount if mounted
-    umount "$USB_DEV" 2>/dev/null
+    # Show device info for debugging
+    log "INFO" "Device information:"
+    blkid "$USB_DEV" 2>/dev/null || echo "  No filesystem detected on $USB_DEV"
+
+    # Unmount if mounted (try multiple times and all possible mount points)
+    log "INFO" "Unmounting device if currently mounted..."
+    # First, check if it's mounted
+    if mount | grep -q "$USB_DEV"; then
+        log "INFO" "Device is currently mounted, unmounting..."
+        # Try to kill processes using the device if fuser is available
+        if command -v fuser >/dev/null 2>&1; then
+            fuser -km "$USB_DEV" 2>/dev/null
+        fi
+        umount "$USB_DEV" 2>/dev/null
+        if [ $? -ne 0 ]; then
+            log "WARNING" "Failed to unmount $USB_DEV, trying forced unmount..."
+            umount -f "$USB_DEV" 2>/dev/null
+            umount -l "$USB_DEV" 2>/dev/null
+        fi
+    fi
+    if mount | grep -q "$USB_MOUNT_POINT"; then
+        log "INFO" "Mount point is in use, unmounting..."
+        if command -v fuser >/dev/null 2>&1; then
+            fuser -km "$USB_MOUNT_POINT" 2>/dev/null
+        fi
+        umount "$USB_MOUNT_POINT" 2>/dev/null
+        if [ $? -ne 0 ]; then
+            log "WARNING" "Failed to unmount $USB_MOUNT_POINT, trying forced unmount..."
+            umount -f "$USB_MOUNT_POINT" 2>/dev/null
+            umount -l "$USB_MOUNT_POINT" 2>/dev/null
+        fi
+    fi
+    sleep 2
 
     # Format USB
     log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
-    if mke2fs -t ext4 -L tailscale -F "$USB_DEV" >/dev/null 2>&1; then
+    log "INFO" "This may take a moment..."
+    if mke2fs -t ext4 -L tailscale -F "$USB_DEV" 2>&1; then
         log "SUCCESS" "USB formatted successfully"
     else
         log "ERROR" "Failed to format USB"
+        log "ERROR" "Please check if the USB device is properly connected and not write-protected"
         exit 1
     fi
 
