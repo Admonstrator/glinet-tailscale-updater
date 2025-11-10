@@ -857,6 +857,12 @@ setup_usb_storage() {
     insmod /lib/modules/*/ext4.ko 2>/dev/null
     modprobe ext4 2>/dev/null
 
+    # Stop any automount services that might interfere
+    log "INFO" "Temporarily stopping automount services..."
+    /etc/init.d/fstab stop 2>/dev/null || true
+    /etc/init.d/block-mount stop 2>/dev/null || true
+    sleep 1
+
     # Show device info for debugging
     log "INFO" "Device information:"
     blkid "$USB_DEV" 2>/dev/null || echo "  No filesystem detected on $USB_DEV"
@@ -900,7 +906,16 @@ setup_usb_storage() {
     done
 
     log "SUCCESS" "Device unmounted successfully"
+
+    # Flush all pending writes and clear kernel buffers
+    log "INFO" "Flushing kernel buffers..."
+    sync
     sleep 1
+
+    # Flush device buffers
+    if command -v blockdev >/dev/null 2>&1; then
+        blockdev --flushbufs "$USB_DEV" 2>/dev/null || true
+    fi
 
     # Clear any existing filesystem signatures
     log "INFO" "Clearing filesystem signatures..."
@@ -910,7 +925,43 @@ setup_usb_storage() {
         # Fallback: use dd to clear the beginning of the device
         dd if=/dev/zero of="$USB_DEV" bs=1M count=10 2>/dev/null || true
     fi
-    sleep 1
+
+    # Force kernel to re-read partition table (on parent device)
+    log "INFO" "Reloading partition table..."
+    # Extract parent device (e.g., /dev/sda from /dev/sda1)
+    PARENT_DEV=$(echo "$USB_DEV" | sed 's/[0-9]*$//')
+    if [ "$PARENT_DEV" != "$USB_DEV" ]; then
+        if command -v partprobe >/dev/null 2>&1; then
+            partprobe "$PARENT_DEV" 2>/dev/null || true
+        fi
+        if command -v blockdev >/dev/null 2>&1; then
+            blockdev --rereadpt "$PARENT_DEV" 2>/dev/null || true
+        fi
+    fi
+
+    # Also check that nothing remounted the device
+    if mount | grep -q "$USB_DEV"; then
+        log "WARNING" "Device was remounted by the system, unmounting again..."
+        umount -l "$USB_DEV" 2>/dev/null || true
+    fi
+
+    # Give kernel time to process the changes
+    sync
+    sleep 3
+
+    # Final check - show what might be using the device
+    log "INFO" "Checking device status before formatting..."
+    if command -v lsof >/dev/null 2>&1; then
+        LSOF_OUT=$(lsof 2>/dev/null | grep "$USB_DEV" || true)
+        if [ -n "$LSOF_OUT" ]; then
+            log "WARNING" "Processes using device:"
+            echo "$LSOF_OUT"
+        fi
+    fi
+    if mount | grep -q "$USB_DEV"; then
+        log "ERROR" "Device is STILL mounted! This should not happen."
+        mount | grep "$USB_DEV"
+    fi
 
     # Format USB
     log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
@@ -925,17 +976,37 @@ setup_usb_storage() {
         if mke2fs -t ext4 -L tailscale -F -F "$USB_DEV" 2>&1; then
             log "SUCCESS" "USB formatted successfully (forced)"
         else
-            log "ERROR" "Failed to format USB even with force option"
-            log "ERROR" "Checking for processes still using the device..."
-            if command -v lsof >/dev/null 2>&1; then
-                lsof | grep "$USB_DEV" || echo "  No processes found"
+            log "WARNING" "Force format also failed, trying dd method..."
+            log "INFO" "Writing zeros to device (this may take a minute)..."
+
+            # Write zeros to clear everything
+            if dd if=/dev/zero of="$USB_DEV" bs=1M count=100 2>&1 | tail -5; then
+                log "SUCCESS" "Device cleared with dd"
+                sync
+                sleep 2
+
+                # Try one more time after dd
+                log "INFO" "Retrying format after clearing device..."
+                if mke2fs -t ext4 -L tailscale -F -F "$USB_DEV" 2>&1; then
+                    log "SUCCESS" "USB formatted successfully after dd clear"
+                else
+                    log "ERROR" "Failed to format USB even after dd clear"
+                    log "ERROR" "Checking for processes still using the device..."
+                    if command -v lsof >/dev/null 2>&1; then
+                        lsof 2>/dev/null | grep "$USB_DEV" || echo "  No processes found with lsof"
+                    fi
+                    if command -v fuser >/dev/null 2>&1; then
+                        fuser -v "$USB_DEV" 2>&1 || echo "  No processes found with fuser"
+                    fi
+                    log "ERROR" "This device may have hardware issues or requires manual intervention"
+                    log "ERROR" "Try unplugging and replugging the USB drive, then run the script again"
+                    exit 1
+                fi
+            else
+                log "ERROR" "Failed to clear device with dd"
+                log "ERROR" "The USB drive may be write-protected or faulty"
+                exit 1
             fi
-            if command -v fuser >/dev/null 2>&1; then
-                fuser -v "$USB_DEV" 2>&1 || echo "  No processes found"
-            fi
-            log "ERROR" "Please manually check: lsof | grep $USB_DEV"
-            log "ERROR" "Or try: dd if=/dev/zero of=$USB_DEV bs=1M count=100"
-            exit 1
         fi
     fi
 
@@ -950,6 +1021,11 @@ setup_usb_storage() {
     fi
 
     log "SUCCESS" "USB mounted at $USB_MOUNT_POINT"
+
+    # Restart automount services
+    log "INFO" "Restarting automount services..."
+    /etc/init.d/fstab start 2>/dev/null || true
+    /etc/init.d/block-mount start 2>/dev/null || true
 
     # Create directory structure
     log "INFO" "Creating directory structure on USB..."
