@@ -28,6 +28,7 @@ Tested on nearly all GL.iNet routers with firmware 4.x
 
 - 🚀 **Automatic Updates** - Fetches and installs the latest Tailscale version
 - 📦 **Tiny Version Support** - Uses optimized tiny binaries to save space
+- 💾 **USB Installation** - Install to USB storage for very low-memory routers
 - 🗜️ **UPX Compression** - Further reduces binary size when needed
 - 🔒 **Tailscale SSH ready** - Enables secure SSH access to the router via Tailscale
 - 🎯 **Version Selection** - Install specific Tailscale versions
@@ -43,8 +44,9 @@ Tested on nearly all GL.iNet routers with firmware 4.x
 | ---------------- | -------------------------------------------------------------- |
 | **Router**       | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
 | **Architecture** | arm64, armv7, mips, mipsle, or x86_64                          |
-| **Free Space**   | At least 15 MB (can be bypassed with `--ignore-free-space`)    |
+| **Free Space**   | At least 15 MB (can be bypassed with `--ignore-free-space` or use `--use-usb` for USB installation)    |
 | **Dependencies** | `xz` (auto-installed if missing and UPX compression is used)   |
+| **USB Drive**    | Required only for `--use-usb` mode (any size, will be formatted) |
 
 ---
 
@@ -75,6 +77,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--select-release`    | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported!                      |
 | `--testing`           | Uses prerelease/testing versions from the testing branch. ⚠️ **Use at your own risk!** May contain bugs or experimental features. |
 | `--ssh`               | Enables Tailscale SSH feature after installation.                                                                                |
+| `--use-usb`           | Installs Tailscale to USB storage for low-memory routers. Formats USB drive and creates persistent installation.                |
 | `--log`               | Shows timestamps in all log messages. Useful for debugging and tracking execution time.                                          |
 | `--ascii`             | Uses ASCII characters (`[OK]`, `[X]`, `[!]`, `[->]`) instead of emojis for compatibility with older terminals.                   |
 | `--help`              | Displays help message with all available arguments.                                                                              |
@@ -147,6 +150,37 @@ Combine both options:
 
 ```bash
 sh update-tailscale.sh --log --ascii
+```
+
+### USB Installation for Low-Memory Routers
+
+Install Tailscale to USB storage for routers with very limited internal storage (e.g., GL-MT300N-V2 Mango):
+
+```bash
+sh update-tailscale.sh --use-usb
+```
+
+The script will:
+- Detect and format a connected USB drive (⚠️ **all data will be erased**)
+- Install Tailscale binaries to USB storage
+- Create auto-mount scripts for boot and hotplug
+- Make the installation persistent across firmware upgrades
+
+> **⚠️ Important Notes:**
+> - The USB drive must remain connected at all times for Tailscale to work
+> - The script will ask for confirmation before formatting the USB drive (unless `--force` is used)
+> - You can combine with other flags like `--force` or `--ssh`
+
+Example with force mode (no prompts):
+
+```bash
+sh update-tailscale.sh --use-usb --force
+```
+
+Example with SSH support enabled:
+
+```bash
+sh update-tailscale.sh --use-usb --ssh
 ```
 
 ---

@@ -25,6 +25,9 @@ SHOW_LOG=0
 ASCII_MODE=0
 TESTING=0
 ENABLE_SSH=0
+USE_USB=0
+USB_DEV=""
+USB_MOUNT_POINT="/mnt/usb_tailscale"
 USER_WANTS_UPX=""
 USER_WANTS_SSH=""
 USER_WANTS_PERSISTENCE=""
@@ -198,14 +201,20 @@ preflight_check() {
         PREFLIGHT=1
     fi
     if [ "$AVAILABLE_SPACE" -lt 15 ]; then
-        log "ERROR" "Not enough space available. Please free up some space and try again."
-        log "ERROR" "The script needs at least 15 MB of free space. Available space: $AVAILABLE_SPACE MB"
-        log "ERROR" "If you want to continue, you can use --ignore-free-space to ignore this check."
-        if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-            log "WARNING" "--ignore-free-space flag is used. Continuing without enough space"
-            log "WARNING" "Current available space: $AVAILABLE_SPACE MB"
+        if [ "$USE_USB" -eq 1 ]; then
+            log "INFO" "Low internal storage detected: $AVAILABLE_SPACE MB"
+            log "INFO" "USB installation mode will use external storage instead"
         else
-            PREFLIGHT=1
+            log "ERROR" "Not enough space available. Please free up some space and try again."
+            log "ERROR" "The script needs at least 15 MB of free space. Available space: $AVAILABLE_SPACE MB"
+            log "ERROR" "If you want to continue, you can use --ignore-free-space to ignore this check."
+            log "ERROR" "For low-memory routers, consider using --use-usb to install to USB storage."
+            if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+                log "WARNING" "--ignore-free-space flag is used. Continuing without enough space"
+                log "WARNING" "Current available space: $AVAILABLE_SPACE MB"
+            else
+                PREFLIGHT=1
+            fi
         fi
     else
         log "SUCCESS" "Available space: $AVAILABLE_SPACE MB"
@@ -578,6 +587,7 @@ invoke_help() {
     printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
     printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
     printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
+    printf "  \033[93m--use-usb\033[0m            \033[97mInstall to USB storage for low-memory routers\033[0m\n"
     printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
     printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
     printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
@@ -784,6 +794,369 @@ choose_release_label() {
     fi
 }
 
+# USB Installation Functions
+detect_usb_device() {
+    log "INFO" "Searching for USB device..."
+    sleep 2
+
+    for dev in /dev/sda1 /dev/sda /dev/sdb1 /dev/sdb; do
+        if [ -b "$dev" ]; then
+            USB_DEV="$dev"
+            log "SUCCESS" "USB found: $USB_DEV"
+            return 0
+        fi
+    done
+
+    log "ERROR" "No USB device found"
+    echo ""
+    echo "Please:"
+    echo "1. Connect USB drive to router"
+    echo "2. Wait 5 seconds"
+    echo "3. Run this script again with --use-usb"
+    exit 1
+}
+
+setup_usb_storage() {
+    log "INFO" "Setting up USB storage for Tailscale installation"
+    echo ""
+
+    # Warning about formatting
+    if [ "$FORCE" -eq 0 ]; then
+        printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
+        printf "\033[31m│ WARNING: USB FORMATTING                                                │\033[0m\n"
+        printf "\033[31m│ This script will FORMAT: $USB_DEV                                      │\033[0m\n"
+        printf "\033[31m│ This will ERASE ALL DATA on the USB drive                             │\033[0m\n"
+        printf "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m\n"
+        echo ""
+        printf "> \033[36mType 'yes' to continue with formatting:\033[0m "
+        read -r confirmation
+
+        if [ "$confirmation" != "yes" ]; then
+            log "INFO" "Installation cancelled"
+            exit 0
+        fi
+    else
+        log "WARNING" "--force flag is used. Proceeding with USB formatting"
+    fi
+
+    # Install required packages
+    log "INFO" "Installing required packages for USB support..."
+    opkg update --verbosity=0
+    opkg install --verbosity=0 block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
+
+    if ! command -v mke2fs >/dev/null; then
+        log "ERROR" "Failed to install e2fsprogs. Cannot format USB."
+        exit 1
+    fi
+
+    # Load ext4 module
+    log "INFO" "Loading ext4 kernel module..."
+    insmod /lib/modules/*/ext4.ko 2>/dev/null
+    modprobe ext4 2>/dev/null
+
+    # Unmount if mounted
+    umount "$USB_DEV" 2>/dev/null
+
+    # Format USB
+    log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
+    if mke2fs -t ext4 -L tailscale -F "$USB_DEV" >/dev/null 2>&1; then
+        log "SUCCESS" "USB formatted successfully"
+    else
+        log "ERROR" "Failed to format USB"
+        exit 1
+    fi
+
+    # Create mount point and mount
+    log "INFO" "Creating mount point and mounting USB..."
+    mkdir -p "$USB_MOUNT_POINT"
+    mount -t ext4 "$USB_DEV" "$USB_MOUNT_POINT"
+
+    if ! mount | grep -q "$USB_MOUNT_POINT"; then
+        log "ERROR" "Failed to mount USB"
+        exit 1
+    fi
+
+    log "SUCCESS" "USB mounted at $USB_MOUNT_POINT"
+
+    # Create directory structure
+    log "INFO" "Creating directory structure on USB..."
+    mkdir -p "$USB_MOUNT_POINT/bin"
+    mkdir -p "$USB_MOUNT_POINT/data"
+    mkdir -p "$USB_MOUNT_POINT/backups"
+
+    # Add to fstab for auto-mount
+    log "INFO" "Configuring automatic mount in /etc/fstab..."
+    if ! grep -q "$USB_MOUNT_POINT" /etc/fstab 2>/dev/null; then
+        echo "LABEL=tailscale $USB_MOUNT_POINT ext4 defaults,nofail 0 0" >> /etc/fstab
+        log "SUCCESS" "Added to /etc/fstab"
+    else
+        log "INFO" "Entry already exists in /etc/fstab"
+    fi
+}
+
+create_usb_hotplug_script() {
+    log "INFO" "Creating USB hotplug auto-mount script..."
+    mkdir -p /etc/hotplug.d/block
+
+    cat > /etc/hotplug.d/block/10-mount-tailscale-usb << 'HOTPLUG_EOF'
+#!/bin/sh
+if [ "$ACTION" = "add" ] && [ -n "$DEVNAME" ]; then
+    sleep 2
+    LABEL=$(blkid -s LABEL -o value /dev/$DEVNAME 2>/dev/null)
+    if [ "$LABEL" = "tailscale" ]; then
+        [ ! -d /mnt/usb_tailscale ] && mkdir -p /mnt/usb_tailscale
+        mount -t ext4 /dev/$DEVNAME /mnt/usb_tailscale 2>/dev/null
+        if [ -f /mnt/usb_tailscale/bin/tailscaled ]; then
+            ln -sf /mnt/usb_tailscale/bin/tailscale /usr/sbin/tailscale
+            ln -sf /mnt/usb_tailscale/bin/tailscaled /usr/sbin/tailscaled
+            /etc/init.d/tailscale restart 2>/dev/null
+        fi
+    fi
+fi
+HOTPLUG_EOF
+
+    chmod +x /etc/hotplug.d/block/10-mount-tailscale-usb
+    log "SUCCESS" "Hotplug script created at /etc/hotplug.d/block/10-mount-tailscale-usb"
+}
+
+create_usb_init_script() {
+    log "INFO" "Creating Tailscale init.d service for USB installation..."
+
+    cat > /etc/init.d/tailscale << 'INITD_EOF'
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+USE_PROCD=1
+
+start_service() {
+    # Ensure USB is mounted
+    if ! mount | grep -q "/mnt/usb_tailscale"; then
+        # Try to mount by label first
+        if blkid | grep -q 'LABEL="tailscale"'; then
+            mkdir -p /mnt/usb_tailscale
+            mount LABEL=tailscale /mnt/usb_tailscale 2>/dev/null
+            sleep 2
+        # Fallback to common device paths
+        elif [ -b /dev/sda1 ]; then
+            mkdir -p /mnt/usb_tailscale
+            mount -t ext4 /dev/sda1 /mnt/usb_tailscale 2>/dev/null
+            sleep 2
+        fi
+    fi
+
+    # Recreate symlinks to ensure they point to USB
+    if [ -f /mnt/usb_tailscale/bin/tailscaled ]; then
+        ln -sf /mnt/usb_tailscale/bin/tailscale /usr/sbin/tailscale
+        ln -sf /mnt/usb_tailscale/bin/tailscaled /usr/sbin/tailscaled
+    else
+        logger -t tailscale "ERROR: tailscaled not found on USB"
+        return 1
+    fi
+
+    # Create required directories
+    mkdir -p /var/run/tailscale
+    mkdir -p /var/lib/tailscale
+
+    # Start daemon
+    procd_open_instance
+    procd_set_param command /usr/sbin/tailscaled \
+        --state=/var/lib/tailscale/tailscaled.state \
+        --socket=/var/run/tailscale/tailscaled.sock \
+        --port=41641
+    procd_set_param respawn
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    logger -t tailscale "Tailscale daemon started from USB"
+}
+
+stop_service() {
+    killall tailscaled 2>/dev/null
+    rm -f /var/run/tailscale/tailscaled.sock
+}
+
+restart() {
+    stop
+    sleep 2
+    start
+}
+INITD_EOF
+
+    chmod +x /etc/init.d/tailscale
+    log "SUCCESS" "Init.d service created at /etc/init.d/tailscale"
+
+    # Enable service for auto-start
+    log "INFO" "Enabling service for auto-start on boot..."
+    /etc/init.d/tailscale enable 2>/dev/null
+    log "SUCCESS" "Service enabled"
+}
+
+install_tiny_tailscale_usb() {
+    # Stop tailscale if running
+    stop_tailscale
+
+    log "INFO" "Installing tiny Tailscale to USB storage..."
+
+    # Check if tailscale binary is present
+    if [ ! -f "/tmp/tailscaled-linux-$TINY_ARCH" ]; then
+        log "ERROR" "Tailscaled binary not found at /tmp/tailscaled-linux-$TINY_ARCH"
+        exit 1
+    fi
+
+    # Copy to USB
+    cp /tmp/tailscaled-linux-$TINY_ARCH "$USB_MOUNT_POINT/bin/tailscaled"
+    chmod +x "$USB_MOUNT_POINT/bin/tailscaled"
+
+    # Create symlink on USB (tailscale -> tailscaled)
+    ln -sf "$USB_MOUNT_POINT/bin/tailscaled" "$USB_MOUNT_POINT/bin/tailscale"
+
+    # Create symlinks in /usr/sbin to USB binaries
+    ln -sf "$USB_MOUNT_POINT/bin/tailscale" /usr/sbin/tailscale
+    ln -sf "$USB_MOUNT_POINT/bin/tailscaled" /usr/sbin/tailscaled
+
+    log "SUCCESS" "Tiny Tailscale installed to USB"
+
+    # Remove temporary files
+    log "INFO" "Removing temporary files"
+    rm -f /tmp/tailscaled-linux-$TINY_ARCH
+
+    # Start tailscale using the new init script
+    /etc/init.d/tailscale start
+    sleep 3
+}
+
+install_tailscale_usb() {
+    # Stop tailscale if running
+    stop_tailscale
+
+    log "INFO" "Installing Tailscale to USB storage..."
+
+    # Check if tailscale binaries are present
+    if [ ! -f "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscale" ]; then
+        log "ERROR" "Tailscale binary not found"
+        exit 1
+    fi
+    if [ ! -f "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled" ]; then
+        log "ERROR" "Tailscaled binary not found"
+        exit 1
+    fi
+
+    # Copy to USB
+    cp /tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscale "$USB_MOUNT_POINT/bin/tailscale"
+    cp /tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled "$USB_MOUNT_POINT/bin/tailscaled"
+    chmod +x "$USB_MOUNT_POINT/bin/tailscale"
+    chmod +x "$USB_MOUNT_POINT/bin/tailscaled"
+
+    # Create symlinks in /usr/sbin to USB binaries
+    ln -sf "$USB_MOUNT_POINT/bin/tailscale" /usr/sbin/tailscale
+    ln -sf "$USB_MOUNT_POINT/bin/tailscaled" /usr/sbin/tailscaled
+
+    log "SUCCESS" "Tailscale installed to USB"
+
+    # Remove temporary files
+    log "INFO" "Removing temporary files"
+    rm -rf /tmp/tailscale
+
+    # Start tailscale using the new init script
+    /etc/init.d/tailscale start
+    sleep 3
+}
+
+upgrade_persistance_usb() {
+    log "INFO" "Making USB installation persistent across firmware upgrades..."
+
+    # Add USB-specific files to sysupgrade.conf
+    for item in "/etc/hotplug.d/block/10-mount-tailscale-usb" "/etc/fstab" "/etc/init.d/tailscale" "/var/lib/tailscale"; do
+        if ! grep -q "^$item" /etc/sysupgrade.conf 2>/dev/null; then
+            echo "$item" >> /etc/sysupgrade.conf
+        fi
+    done
+
+    # Add gl_tailscale if it exists (GL.iNet routers)
+    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
+        if ! grep -q "^/usr/bin/gl_tailscale" /etc/sysupgrade.conf 2>/dev/null; then
+            echo "/usr/bin/gl_tailscale" >> /etc/sysupgrade.conf
+        fi
+    fi
+
+    # Add config backup
+    if ! grep -q "^/etc/config/tailscale" /etc/sysupgrade.conf 2>/dev/null; then
+        echo "/etc/config/tailscale" >> /etc/sysupgrade.conf
+    fi
+
+    log "SUCCESS" "USB installation will survive firmware upgrades"
+    log "INFO" "Note: Tailscale binaries are on USB - keep the USB drive connected"
+}
+
+invoke_outro_usb() {
+    echo ""
+    echo "======================================"
+    echo " USB Installation Complete!"
+    echo "======================================"
+    echo ""
+    log "SUCCESS" "Tailscale has been installed to USB storage"
+    echo ""
+
+    # Check daemon status
+    if ps | grep -v grep | grep -q tailscaled; then
+        log "SUCCESS" "Tailscale daemon is running"
+    else
+        log "ERROR" "Tailscale daemon is not running"
+    fi
+
+    # Check binary
+    if tailscale --version >/dev/null 2>&1; then
+        log "SUCCESS" "Tailscale binary works correctly"
+        echo ""
+        echo "Installed version:"
+        tailscale --version | head -1
+    else
+        log "ERROR" "Tailscale binary test failed"
+    fi
+
+    echo ""
+    echo "USB space usage:"
+    df -h "$USB_MOUNT_POINT" | tail -1
+
+    echo ""
+    echo "======================================"
+    echo " Next Steps"
+    echo "======================================"
+    echo ""
+    echo "1. Run: tailscale up"
+    echo "2. Follow the authentication link"
+    echo "3. Done!"
+    echo ""
+    echo "Useful commands:"
+    echo "  tailscale status       - Check connection status"
+    echo "  tailscale ip           - Show your Tailscale IP"
+    echo "  /etc/init.d/tailscale restart  - Restart daemon"
+    echo ""
+    echo "IMPORTANT NOTES:"
+    echo "  - Keep USB drive connected at all times"
+    echo "  - USB is auto-mounted on boot and hotplug"
+    echo "  - Installation survives firmware upgrades"
+    echo ""
+
+    # Show SSH info if applicable
+    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
+        log "INFO" "Enabling Tailscale SSH support as requested"
+        log "WARNING" "If you are connected via Tailscale SSH, you may be disconnected"
+        tailscale set --ssh --accept-risk=lose-ssh
+        log "SUCCESS" "Tailscale SSH support enabled"
+    fi
+
+    echo ""
+    echo "If you like this script, please consider supporting the project:"
+    echo "  - GitHub: github.com/sponsors/admonstrator"
+    echo "  - Ko-fi: ko-fi.com/admon"
+    echo "  - Buy Me a Coffee: buymeacoffee.com/admon"
+    echo ""
+}
+
 # Read arguments
 for arg in "$@"; do
     case $arg in
@@ -826,6 +1199,9 @@ for arg in "$@"; do
         ;;
     --ssh)
         ENABLE_SSH=1
+        ;;
+    --use-usb)
+        USE_USB=1
         ;;
     *)
         echo "Unknown argument: $arg"
@@ -874,6 +1250,49 @@ fi
 # Collect all user preferences before starting the update
 collect_user_preferences
 
+# USB Installation Path
+if [ "$USE_USB" -eq 1 ]; then
+    log "INFO" "USB installation mode enabled"
+    echo ""
+
+    # Detect USB device
+    detect_usb_device
+
+    # Setup USB storage (format, mount, configure)
+    setup_usb_storage
+
+    # Create hotplug script for auto-mounting
+    create_usb_hotplug_script
+
+    # Create init.d service
+    create_usb_init_script
+
+    # Backup existing config
+    backup
+
+    # Download and install based on version preference
+    if [ "$NO_TINY" -eq 1 ]; then
+        # Use full Tailscale version
+        get_latest_tailscale_version
+        install_tailscale_usb
+    else
+        # Use tiny Tailscale version (default)
+        get_latest_tailscale_version_tiny
+        install_tiny_tailscale_usb
+    fi
+
+    # Modify GL.iNet scripts if needed
+    invoke_modify_script
+
+    # Make installation persistent
+    upgrade_persistance_usb
+
+    # Show completion message
+    invoke_outro_usb
+    exit 0
+fi
+
+# Standard Installation Path
 if [ "$NO_TINY" -eq 1 ]; then
     # Load the original tailscale
     get_latest_tailscale_version
