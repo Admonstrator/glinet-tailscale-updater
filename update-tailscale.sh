@@ -863,43 +863,80 @@ setup_usb_storage() {
 
     # Unmount if mounted (try multiple times and all possible mount points)
     log "INFO" "Unmounting device if currently mounted..."
-    # First, check if it's mounted
-    if mount | grep -q "$USB_DEV"; then
-        log "INFO" "Device is currently mounted, unmounting..."
-        # Try to kill processes using the device if fuser is available
-        if command -v fuser >/dev/null 2>&1; then
-            fuser -km "$USB_DEV" 2>/dev/null
+
+    # Kill any processes using the USB device or mount point
+    if command -v fuser >/dev/null 2>&1; then
+        if mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; then
+            log "INFO" "Killing processes using the USB device..."
+            fuser -k "$USB_DEV" 2>/dev/null
+            fuser -k "$USB_MOUNT_POINT" 2>/dev/null
+            sleep 1
         fi
+    fi
+
+    # Try to unmount up to 5 times
+    UNMOUNT_TRIES=0
+    while mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; do
+        UNMOUNT_TRIES=$((UNMOUNT_TRIES + 1))
+        if [ $UNMOUNT_TRIES -gt 5 ]; then
+            log "ERROR" "Failed to unmount USB device after $UNMOUNT_TRIES attempts"
+            log "ERROR" "Please manually unmount the device and try again"
+            log "ERROR" "You can try: umount $USB_DEV && umount $USB_MOUNT_POINT"
+            exit 1
+        fi
+
+        log "INFO" "Unmount attempt $UNMOUNT_TRIES of 5..."
         umount "$USB_DEV" 2>/dev/null
-        if [ $? -ne 0 ]; then
-            log "WARNING" "Failed to unmount $USB_DEV, trying forced unmount..."
-            umount -f "$USB_DEV" 2>/dev/null
-            umount -l "$USB_DEV" 2>/dev/null
-        fi
-    fi
-    if mount | grep -q "$USB_MOUNT_POINT"; then
-        log "INFO" "Mount point is in use, unmounting..."
-        if command -v fuser >/dev/null 2>&1; then
-            fuser -km "$USB_MOUNT_POINT" 2>/dev/null
-        fi
         umount "$USB_MOUNT_POINT" 2>/dev/null
-        if [ $? -ne 0 ]; then
-            log "WARNING" "Failed to unmount $USB_MOUNT_POINT, trying forced unmount..."
+
+        if mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; then
+            log "WARNING" "Normal unmount failed, trying forced/lazy unmount..."
+            umount -f "$USB_DEV" 2>/dev/null
             umount -f "$USB_MOUNT_POINT" 2>/dev/null
+            umount -l "$USB_DEV" 2>/dev/null
             umount -l "$USB_MOUNT_POINT" 2>/dev/null
+            sleep 2
         fi
+    done
+
+    log "SUCCESS" "Device unmounted successfully"
+    sleep 1
+
+    # Clear any existing filesystem signatures
+    log "INFO" "Clearing filesystem signatures..."
+    if command -v wipefs >/dev/null 2>&1; then
+        wipefs -a "$USB_DEV" 2>/dev/null || true
+    else
+        # Fallback: use dd to clear the beginning of the device
+        dd if=/dev/zero of="$USB_DEV" bs=1M count=10 2>/dev/null || true
     fi
-    sleep 2
+    sleep 1
 
     # Format USB
     log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
     log "INFO" "This may take a moment..."
+
+    # First try normal format
     if mke2fs -t ext4 -L tailscale -F "$USB_DEV" 2>&1; then
         log "SUCCESS" "USB formatted successfully"
     else
-        log "ERROR" "Failed to format USB"
-        log "ERROR" "Please check if the USB device is properly connected and not write-protected"
-        exit 1
+        log "WARNING" "Normal format failed, trying force format..."
+        # Try with double -F flag which forces even if mounted (dangerous but necessary)
+        if mke2fs -t ext4 -L tailscale -F -F "$USB_DEV" 2>&1; then
+            log "SUCCESS" "USB formatted successfully (forced)"
+        else
+            log "ERROR" "Failed to format USB even with force option"
+            log "ERROR" "Checking for processes still using the device..."
+            if command -v lsof >/dev/null 2>&1; then
+                lsof | grep "$USB_DEV" || echo "  No processes found"
+            fi
+            if command -v fuser >/dev/null 2>&1; then
+                fuser -v "$USB_DEV" 2>&1 || echo "  No processes found"
+            fi
+            log "ERROR" "Please manually check: lsof | grep $USB_DEV"
+            log "ERROR" "Or try: dd if=/dev/zero of=$USB_DEV bs=1M count=100"
+            exit 1
+        fi
     fi
 
     # Create mount point and mount
