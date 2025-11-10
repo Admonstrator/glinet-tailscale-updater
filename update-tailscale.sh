@@ -820,6 +820,13 @@ setup_usb_storage() {
     log "INFO" "Setting up USB storage for Tailscale installation"
     echo ""
 
+    # Check if this is an existing Tailscale USB installation
+    EXISTING_INSTALL=0
+    if blkid "$USB_DEV" 2>/dev/null | grep -q 'LABEL="tailscale"'; then
+        EXISTING_INSTALL=1
+        log "INFO" "Detected existing Tailscale USB installation on $USB_DEV"
+    fi
+
     # Warning about formatting
     if [ "$FORCE" -eq 0 ]; then
         printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
@@ -857,157 +864,63 @@ setup_usb_storage() {
     insmod /lib/modules/*/ext4.ko 2>/dev/null
     modprobe ext4 2>/dev/null
 
-    # Stop any automount services that might interfere
-    log "INFO" "Temporarily stopping automount services..."
-    /etc/init.d/fstab stop 2>/dev/null || true
-    /etc/init.d/block-mount stop 2>/dev/null || true
-    sleep 1
+    # If existing installation, try to stop services first
+    if [ "$EXISTING_INSTALL" -eq 1 ]; then
+        log "INFO" "Stopping existing Tailscale services..."
+        /etc/init.d/tailscale stop 2>/dev/null || true
+        killall tailscaled 2>/dev/null || true
+        sleep 2
+    fi
 
-    # Show device info for debugging
-    log "INFO" "Device information:"
-    blkid "$USB_DEV" 2>/dev/null || echo "  No filesystem detected on $USB_DEV"
-
-    # Unmount if mounted (try multiple times and all possible mount points)
+    # Try to unmount
     log "INFO" "Unmounting device if currently mounted..."
-
-    # Kill any processes using the USB device or mount point
-    if command -v fuser >/dev/null 2>&1; then
-        if mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; then
-            log "INFO" "Killing processes using the USB device..."
-            fuser -k "$USB_DEV" 2>/dev/null
-            fuser -k "$USB_MOUNT_POINT" 2>/dev/null
-            sleep 1
-        fi
-    fi
-
-    # Try to unmount up to 5 times
-    UNMOUNT_TRIES=0
-    while mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; do
-        UNMOUNT_TRIES=$((UNMOUNT_TRIES + 1))
-        if [ $UNMOUNT_TRIES -gt 5 ]; then
-            log "ERROR" "Failed to unmount USB device after $UNMOUNT_TRIES attempts"
-            log "ERROR" "Please manually unmount the device and try again"
-            log "ERROR" "You can try: umount $USB_DEV && umount $USB_MOUNT_POINT"
-            exit 1
-        fi
-
-        log "INFO" "Unmount attempt $UNMOUNT_TRIES of 5..."
-        umount "$USB_DEV" 2>/dev/null
-        umount "$USB_MOUNT_POINT" 2>/dev/null
-
-        if mount | grep -q "$USB_DEV\|$USB_MOUNT_POINT"; then
-            log "WARNING" "Normal unmount failed, trying forced/lazy unmount..."
-            umount -f "$USB_DEV" 2>/dev/null
-            umount -f "$USB_MOUNT_POINT" 2>/dev/null
-            umount -l "$USB_DEV" 2>/dev/null
-            umount -l "$USB_MOUNT_POINT" 2>/dev/null
-            sleep 2
-        fi
-    done
-
-    log "SUCCESS" "Device unmounted successfully"
-
-    # Flush all pending writes and clear kernel buffers
-    log "INFO" "Flushing kernel buffers..."
-    sync
+    umount "$USB_DEV" 2>/dev/null || true
+    umount "$USB_MOUNT_POINT" 2>/dev/null || true
     sleep 1
 
-    # Flush device buffers
-    if command -v blockdev >/dev/null 2>&1; then
-        blockdev --flushbufs "$USB_DEV" 2>/dev/null || true
-    fi
-
-    # Clear any existing filesystem signatures
-    log "INFO" "Clearing filesystem signatures..."
-    if command -v wipefs >/dev/null 2>&1; then
-        wipefs -a "$USB_DEV" 2>/dev/null || true
-    else
-        # Fallback: use dd to clear the beginning of the device
-        dd if=/dev/zero of="$USB_DEV" bs=1M count=10 2>/dev/null || true
-    fi
-
-    # Force kernel to re-read partition table (on parent device)
-    log "INFO" "Reloading partition table..."
-    # Extract parent device (e.g., /dev/sda from /dev/sda1)
-    PARENT_DEV=$(echo "$USB_DEV" | sed 's/[0-9]*$//')
-    if [ "$PARENT_DEV" != "$USB_DEV" ]; then
-        if command -v partprobe >/dev/null 2>&1; then
-            partprobe "$PARENT_DEV" 2>/dev/null || true
-        fi
-        if command -v blockdev >/dev/null 2>&1; then
-            blockdev --rereadpt "$PARENT_DEV" 2>/dev/null || true
-        fi
-    fi
-
-    # Also check that nothing remounted the device
-    if mount | grep -q "$USB_DEV"; then
-        log "WARNING" "Device was remounted by the system, unmounting again..."
-        umount -l "$USB_DEV" 2>/dev/null || true
-    fi
-
-    # Give kernel time to process the changes
-    sync
-    sleep 3
-
-    # Final check - show what might be using the device
-    log "INFO" "Checking device status before formatting..."
-    if command -v lsof >/dev/null 2>&1; then
-        LSOF_OUT=$(lsof 2>/dev/null | grep "$USB_DEV" || true)
-        if [ -n "$LSOF_OUT" ]; then
-            log "WARNING" "Processes using device:"
-            echo "$LSOF_OUT"
-        fi
-    fi
-    if mount | grep -q "$USB_DEV"; then
-        log "ERROR" "Device is STILL mounted! This should not happen."
-        mount | grep "$USB_DEV"
-    fi
-
-    # Format USB
+    # Simple format attempt
     log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
-    log "INFO" "This may take a moment..."
 
-    # First try normal format
-    if mke2fs -t ext4 -L tailscale -F "$USB_DEV" 2>&1; then
+    if mke2fs -t ext4 -L tailscale -F "$USB_DEV" >/dev/null 2>&1; then
         log "SUCCESS" "USB formatted successfully"
     else
-        log "WARNING" "Normal format failed, trying force format..."
-        # Try with double -F flag which forces even if mounted (dangerous but necessary)
-        if mke2fs -t ext4 -L tailscale -F -F "$USB_DEV" 2>&1; then
-            log "SUCCESS" "USB formatted successfully (forced)"
-        else
-            log "WARNING" "Force format also failed, trying dd method..."
-            log "INFO" "Writing zeros to device (this may take a minute)..."
+        # Format failed - give user manual instructions
+        log "ERROR" "Automatic formatting failed - the device is in use by the system"
+        echo ""
+        echo "This usually happens when:"
+        echo "  1. An existing Tailscale installation is running from this USB"
+        echo "  2. The system has the device open for another reason"
+        echo ""
+        echo "Please run these commands manually, then re-run this script:"
+        echo ""
+        echo "┌─────────────────────────────────────────────────────────────┐"
+        echo "│ Manual USB Preparation Steps                                │"
+        echo "└─────────────────────────────────────────────────────────────┘"
+        echo ""
 
-            # Write zeros to clear everything
-            if dd if=/dev/zero of="$USB_DEV" bs=1M count=100 2>&1 | tail -5; then
-                log "SUCCESS" "Device cleared with dd"
-                sync
-                sleep 2
-
-                # Try one more time after dd
-                log "INFO" "Retrying format after clearing device..."
-                if mke2fs -t ext4 -L tailscale -F -F "$USB_DEV" 2>&1; then
-                    log "SUCCESS" "USB formatted successfully after dd clear"
-                else
-                    log "ERROR" "Failed to format USB even after dd clear"
-                    log "ERROR" "Checking for processes still using the device..."
-                    if command -v lsof >/dev/null 2>&1; then
-                        lsof 2>/dev/null | grep "$USB_DEV" || echo "  No processes found with lsof"
-                    fi
-                    if command -v fuser >/dev/null 2>&1; then
-                        fuser -v "$USB_DEV" 2>&1 || echo "  No processes found with fuser"
-                    fi
-                    log "ERROR" "This device may have hardware issues or requires manual intervention"
-                    log "ERROR" "Try unplugging and replugging the USB drive, then run the script again"
-                    exit 1
-                fi
-            else
-                log "ERROR" "Failed to clear device with dd"
-                log "ERROR" "The USB drive may be write-protected or faulty"
-                exit 1
-            fi
+        if [ "$EXISTING_INSTALL" -eq 1 ]; then
+            echo "# Stop and disable existing Tailscale service"
+            echo "/etc/init.d/tailscale stop"
+            echo "/etc/init.d/tailscale disable"
+            echo "killall tailscaled"
+            echo ""
+            echo "# Remove old scripts"
+            echo "rm -f /etc/init.d/tailscale"
+            echo "rm -f /etc/hotplug.d/block/10-mount-tailscale-usb"
+            echo ""
         fi
+
+        echo "# Unmount the USB drive"
+        echo "umount $USB_DEV"
+        echo "umount $USB_MOUNT_POINT"
+        echo ""
+        echo "# Format the USB drive"
+        echo "mke2fs -t ext4 -L tailscale -F $USB_DEV"
+        echo ""
+        echo "Once done, re-run this script with:"
+        echo "  sh update-tailscale.sh --use-usb"
+        echo ""
+        exit 1
     fi
 
     # Create mount point and mount
@@ -1021,11 +934,6 @@ setup_usb_storage() {
     fi
 
     log "SUCCESS" "USB mounted at $USB_MOUNT_POINT"
-
-    # Restart automount services
-    log "INFO" "Restarting automount services..."
-    /etc/init.d/fstab start 2>/dev/null || true
-    /etc/init.d/block-mount start 2>/dev/null || true
 
     # Create directory structure
     log "INFO" "Creating directory structure on USB..."
