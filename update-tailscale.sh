@@ -820,6 +820,13 @@ setup_usb_storage() {
     log "INFO" "Setting up USB storage for Tailscale installation"
     echo ""
 
+    # Check if this is an existing Tailscale USB installation
+    EXISTING_INSTALL=0
+    if blkid "$USB_DEV" 2>/dev/null | grep -q 'LABEL="tailscale"'; then
+        EXISTING_INSTALL=1
+        log "INFO" "Detected existing Tailscale USB installation on $USB_DEV"
+    fi
+
     # Warning about formatting
     if [ "$FORCE" -eq 0 ]; then
         printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
@@ -841,28 +848,78 @@ setup_usb_storage() {
 
     # Install required packages
     log "INFO" "Installing required packages for USB support..."
-    opkg update --verbosity=0
-    opkg install --verbosity=0 block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
+    opkg update
+    opkg install block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
 
+    log "INFO" "Verifying e2fsprogs installation..."
     if ! command -v mke2fs >/dev/null; then
         log "ERROR" "Failed to install e2fsprogs. Cannot format USB."
+        log "ERROR" "Try running: opkg install e2fsprogs"
         exit 1
     fi
+    log "SUCCESS" "e2fsprogs installed successfully"
 
     # Load ext4 module
     log "INFO" "Loading ext4 kernel module..."
     insmod /lib/modules/*/ext4.ko 2>/dev/null
     modprobe ext4 2>/dev/null
 
-    # Unmount if mounted
-    umount "$USB_DEV" 2>/dev/null
+    # If existing installation, try to stop services first
+    if [ "$EXISTING_INSTALL" -eq 1 ]; then
+        log "INFO" "Stopping existing Tailscale services..."
+        /etc/init.d/tailscale stop 2>/dev/null || true
+        killall tailscaled 2>/dev/null || true
+        sleep 2
+    fi
 
-    # Format USB
+    # Try to unmount
+    log "INFO" "Unmounting device if currently mounted..."
+    umount "$USB_DEV" 2>/dev/null || true
+    umount "$USB_MOUNT_POINT" 2>/dev/null || true
+    sleep 1
+
+    # Simple format attempt
     log "INFO" "Formatting USB as ext4 with label 'tailscale'..."
+
     if mke2fs -t ext4 -L tailscale -F "$USB_DEV" >/dev/null 2>&1; then
         log "SUCCESS" "USB formatted successfully"
     else
-        log "ERROR" "Failed to format USB"
+        # Format failed - give user manual instructions
+        log "ERROR" "Automatic formatting failed - the device is in use by the system"
+        echo ""
+        echo "This usually happens when:"
+        echo "  1. An existing Tailscale installation is running from this USB"
+        echo "  2. The system has the device open for another reason"
+        echo ""
+        echo "Please run these commands manually, then re-run this script:"
+        echo ""
+        echo "┌─────────────────────────────────────────────────────────────┐"
+        echo "│ Manual USB Preparation Steps                                │"
+        echo "└─────────────────────────────────────────────────────────────┘"
+        echo ""
+
+        if [ "$EXISTING_INSTALL" -eq 1 ]; then
+            echo "# Stop and disable existing Tailscale service"
+            echo "/etc/init.d/tailscale stop"
+            echo "/etc/init.d/tailscale disable"
+            echo "killall tailscaled"
+            echo ""
+            echo "# Remove old scripts"
+            echo "rm -f /etc/init.d/tailscale"
+            echo "rm -f /etc/hotplug.d/block/10-mount-tailscale-usb"
+            echo ""
+        fi
+
+        echo "# Unmount the USB drive"
+        echo "umount $USB_DEV"
+        echo "umount $USB_MOUNT_POINT"
+        echo ""
+        echo "# Format the USB drive"
+        echo "mke2fs -t ext4 -L tailscale -F $USB_DEV"
+        echo ""
+        echo "Once done, re-run this script with:"
+        echo "  sh update-tailscale.sh --use-usb"
+        echo ""
         exit 1
     fi
 
