@@ -94,7 +94,7 @@ jobs:
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient"
           SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
           # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
-          BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
+          BUILD_TAGS="${SMALL_TAGS},netgo,ts_include_cli,osrouter,unixsocketidentity"
           
           # Set ldflags with custom version info and stripping
           LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
