@@ -4,9 +4,7 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-# Contributor: lwbt
-# Date: 2025-11-01
-SCRIPT_VERSION="2025.11.06.01"
+SCRIPT_VERSION="2025.11.12.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -744,7 +742,7 @@ log() {
 # Function to choose a GitHub release label
 choose_release_label() {
     log "INFO" "Fetching available release labels..."
-    available_labels=$(wget -qO- "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name": "[^"]*' | sed 's/"tag_name": "//g')
+    available_labels=$(wget -qO- "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name":"[^"]*' | sed 's/"tag_name": "//g')
     
     if [ -z "$available_labels" ]; then
         log "ERROR" "Could not retrieve release labels. Please check your internet connection."
