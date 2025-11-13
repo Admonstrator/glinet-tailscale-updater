@@ -59,7 +59,7 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 Run the updater without cloning the repository:
 
 ```bash
-wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh
 ```
 
 > ⚠️ **Important:** Do not run this script as a cron job! Manual execution is recommended.
@@ -95,7 +95,7 @@ The `update-tailscale.sh` script supports the following arguments:
 Update to the latest stable release:
 
 ```bash
-wget -O update-tailscale.sh https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/update-tailscale.sh && sh update-tailscale.sh
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh
 ```
 
 ### Testing/Prerelease Versions
@@ -113,7 +113,7 @@ sh update-tailscale.sh --testing
 Install a specific Tailscale version (useful if the latest version has issues):
 
 ```bash
-sh update-tailscale.sh --select-release
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --select-release
 ```
 
 The script will display available releases for you to choose from.
@@ -125,13 +125,13 @@ The script will display available releases for you to choose from.
 Skip all prompts and make the installation permanent:
 
 ```bash
-sh update-tailscale.sh --force
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --force
 ```
 
 Combine with `--ignore-free-space` for devices with limited storage:
 
 ```bash
-sh update-tailscale.sh --force --ignore-free-space
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --force --ignore-free-space
 ```
 
 ### Restore Original Binaries
@@ -139,7 +139,7 @@ sh update-tailscale.sh --force --ignore-free-space
 Revert to the original firmware binaries:
 
 ```bash
-sh update-tailscale.sh --restore
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --restore
 ```
 
 > ⚠️ **Caution:** This does not restore configuration files and may result in a broken installation.
@@ -149,19 +149,19 @@ sh update-tailscale.sh --restore
 Enable timestamps for debugging or tracking execution time:
 
 ```bash
-sh update-tailscale.sh --log
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --log
 ```
 
 Use ASCII characters instead of emojis for compatibility with older terminals:
 
 ```bash
-sh update-tailscale.sh --ascii
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --ascii
 ```
 
 Combine both options:
 
 ```bash
-sh update-tailscale.sh --log --ascii
+wget -q https://get.admon.me/tailscale -O update-tailscale.sh ; sh update-tailscale.sh --log --ascii
 ```
 
 ---
