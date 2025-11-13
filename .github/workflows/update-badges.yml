@@ -31,11 +31,15 @@ jobs:
           
           latest_release=$(echo "$release_response" | jq -r '.tag_name // "N/A"')
           
+          # Get script version from update-tailscale.sh
+          script_version=$(grep '^SCRIPT_VERSION=' update-tailscale.sh | cut -d'"' -f2)
+          
           echo "stars=$stars" >> $GITHUB_OUTPUT
           echo "forks=$forks" >> $GITHUB_OUTPUT
           echo "release=$latest_release" >> $GITHUB_OUTPUT
+          echo "script_version=$script_version" >> $GITHUB_OUTPUT
           
-          echo "✅ Fetched stats: $stars stars, $forks forks, release $latest_release"
+          echo "✅ Fetched stats: $stars stars, $forks forks, release $latest_release, script version $script_version"
       
       - name: Generate README from template
         run: |
@@ -53,6 +57,7 @@ jobs:
           stars="${{ steps.stats.outputs.stars }}"
           forks="${{ steps.stats.outputs.forks }}"
           release="${{ steps.stats.outputs.release }}"
+          script_version="${{ steps.stats.outputs.script_version }}"
           stars_color=$(get_color $stars)
           
           # Get current date
@@ -65,6 +70,9 @@ jobs:
           sed -i "s|https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge\&logo=github\&color=blue|https://img.shields.io/badge/release-${release}-blue?style=for-the-badge\&logo=github|g" readme.md
           
           sed -i "s|https://img.shields.io/github/stars/Admonstrator/glinet-tailscale-updater?style=for-the-badge|https://img.shields.io/badge/stars-${stars}-${stars_color}?style=for-the-badge\&logo=github|g" readme.md
+          
+          # Replace script version placeholder if it exists in template
+          sed -i "s|{{SCRIPT_VERSION}}|${script_version}|g" readme.md
           
           # Add last updated badge
           echo "" >> readme.md
@@ -102,6 +110,7 @@ jobs:
           echo "- ⭐ Stars: ${{ steps.stats.outputs.stars }}" >> $GITHUB_STEP_SUMMARY
           echo "- 🍴 Forks: ${{ steps.stats.outputs.forks }}" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 Latest Release: ${{ steps.stats.outputs.release }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📝 Script Version: ${{ steps.stats.outputs.script_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
