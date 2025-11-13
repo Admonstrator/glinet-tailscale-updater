@@ -1,0 +1,111 @@
+name: Update Repository Badges
+
+on:
+  workflow_dispatch:  # Manually triggered
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly on Sunday at midnight
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Fetch repository statistics
+        id: stats
+        run: |
+          # Get repository data
+          response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater")
+          
+          stars=$(echo "$response" | jq -r '.stargazers_count')
+          forks=$(echo "$response" | jq -r '.forks_count')
+          
+          # Get latest release
+          release_response=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases/latest")
+          
+          latest_release=$(echo "$release_response" | jq -r '.tag_name // "N/A"')
+          
+          echo "stars=$stars" >> $GITHUB_OUTPUT
+          echo "forks=$forks" >> $GITHUB_OUTPUT
+          echo "release=$latest_release" >> $GITHUB_OUTPUT
+          
+          echo "✅ Fetched stats: $stars stars, $forks forks, release $latest_release"
+      
+      - name: Generate README from template
+        run: |
+          # Helper function to create color based on count
+          get_color() {
+            local count=$1
+            if [ "$count" -ge 300 ]; then echo "brightgreen"
+            elif [ "$count" -ge 100 ]; then echo "green"
+            elif [ "$count" -ge 50 ]; then echo "yellowgreen"
+            elif [ "$count" -ge 10 ]; then echo "yellow"
+            else echo "orange"
+            fi
+          }
+          
+          stars="${{ steps.stats.outputs.stars }}"
+          forks="${{ steps.stats.outputs.forks }}"
+          release="${{ steps.stats.outputs.release }}"
+          stars_color=$(get_color $stars)
+          
+          # Get current date
+          update_date=$(date '+%Y-%m-%d')
+          
+          # Copy template and replace badge URLs with static badges
+          cp readme.template.md readme.md
+          
+          # Replace dynamic GitHub badges with static shields.io badges
+          sed -i "s|https://img.shields.io/github/v/release/Admonstrator/glinet-tailscale-updater?style=for-the-badge\&logo=github\&color=blue|https://img.shields.io/badge/release-${release}-blue?style=for-the-badge\&logo=github|g" readme.md
+          
+          sed -i "s|https://img.shields.io/github/stars/Admonstrator/glinet-tailscale-updater?style=for-the-badge|https://img.shields.io/badge/stars-${stars}-${stars_color}?style=for-the-badge\&logo=github|g" readme.md
+          
+          # Add last updated badge
+          echo "" >> readme.md
+          echo "<div align=\"center\">" >> readme.md
+          echo "" >> readme.md
+          echo "_Last updated: ${update_date}_" >> readme.md
+          echo "" >> readme.md
+          echo "</div>" >> readme.md
+          
+          echo "✅ README generated with static badges successfully"
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet readme.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add readme.md
+          git commit -m "🤖 Update repository badges [automated]"
+          git push
+      
+      - name: Create summary
+        run: |
+          echo "## 📊 Badge Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Repository Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "- ⭐ Stars: ${{ steps.stats.outputs.stars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🍴 Forks: ${{ steps.stats.outputs.forks }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 Latest Release: ${{ steps.stats.outputs.release }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "✅ **readme.md was updated with new badge values**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **No changes detected - badges are up to date**" >> $GITHUB_STEP_SUMMARY
+          fi
