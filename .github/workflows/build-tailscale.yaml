@@ -85,18 +85,15 @@ jobs:
           echo "Original Tailscale version: ${VERSION_SHORT}"
           echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
           
-          # Generate small binary tags by removing unneeded features for routers
-          # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
-          # Remove desktop/enterprise features that aren't needed on routers
-          FEATURES_TO_REMOVE="ace,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,debugeventbus,debugportmapper,desktop_sessions"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},doctor,drive,identityfederation,kube,linkspeed,linuxdnsfight"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},netlog,networkmanager,oauthkey,outboundproxy,posture"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,serve,synology"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient"
-          SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
-          # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
-          BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
+          # Use explicit build tags matching the working MediaTek MT7981B configuration
+          # netgo is essential for embedded systems (uses Go's native DNS resolver)
+          # Only omit features that are confirmed safe to remove on routers
+          BUILD_TAGS="netgo,ts_include_cli,ts_omit_aws,ts_omit_bird,ts_omit_tap,ts_omit_kube"
+          BUILD_TAGS="${BUILD_TAGS},ts_omit_completion,ts_omit_wakeonlan,ts_omit_capture"
+          BUILD_TAGS="${BUILD_TAGS},ts_omit_relayserver,ts_omit_taildrop,ts_omit_tpm"
+          BUILD_TAGS="${BUILD_TAGS},ts_omit_webclient,ts_omit_drive"
+          BUILD_TAGS="${BUILD_TAGS},ts_omit_clientupdate,ts_omit_desktop_sessions,ts_omit_serve"
+          BUILD_TAGS="${BUILD_TAGS},osrouter,unixsocketidentity"
           
           # Set ldflags with custom version info and stripping
           LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
