@@ -52,6 +52,8 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 | **Architecture** | arm64, armv7, mips, mipsle, or x86_64 |
 | **Free Space** | At least 15 MB (can be bypassed with `--ignore-free-space`) |
 
+> ⚠️ **Please make sure, that you enabled Tailscale in the GL.iNet router settings before running this script!**
+
 ---
 
 ## 🚀 Quick Start
@@ -249,23 +251,6 @@ Special thanks to:
 - Copilot – Yeah, I am using AI to help write code. But I review and test everything thoroughly!
 
 Want to contribute? Pull requests are welcome!
-
----
-
-## 🤝 Sponsors
-
-This project is proudly supported by:
-
-<div align="center">
-
-
-<img src="./images/termius-logo.webp" width="300" alt="GL.iNet Robben Logo" style="border-radius: 10px; margin: 20px 0;">
-
-**[Termius](https://termius.com/)** - The SSH client that works everywhere
-
-Termius provides powerful SSH client solutions for developers and system administrators. Perfect for managing your GL.iNet router and other infrastructure from anywhere.
-
-</div>
 
 ---
 

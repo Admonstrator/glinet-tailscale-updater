@@ -4,7 +4,7 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-SCRIPT_VERSION="2025.13.11.01"
+SCRIPT_VERSION="2025.11.28.02"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://get.admon.me/tailscale-update"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -221,6 +221,7 @@ preflight_check() {
     else
         log "SUCCESS" "wget is installed."
     fi
+
     if [ "$PREFLIGHT" -eq "1" ]; then
         log "ERROR" "Prerequisites are not met. Exiting"
         exit 1
@@ -561,6 +562,18 @@ invoke_outro() {
         log "WARNING" "If you are connected to your router via Tailscale SSH, you will be disconnected now."
         tailscale set --ssh --accept-risk=lose-ssh
         log "SUCCESS" "Tailscale SSH support enabled."
+    fi
+
+    # Check if Tailscale is enabled in GL.iNet GUI
+    if [ "$IS_GLINET" -eq 1 ]; then
+        TAILSCALE_ENABLED=$(uci -q get tailscale.settings.enabled)
+        if [ "$TAILSCALE_ENABLED" = "0" ]; then
+            echo ""
+            echo ""
+            log "WARNING" "Tailscale is not enabled in GL.iNet GUI"
+            log "WARNING" "Make sure to enable it after the update"
+            log "INFO" "See https://glinet.admon.me/tse for instructions"
+        fi
     fi
 }
 
