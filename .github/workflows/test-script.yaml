@@ -218,23 +218,11 @@ jobs:
 
           echo "✓ All flags are documented in README"
 
-      - name: Check version badge consistency
-        run: |
-          script_version=$(grep 'SCRIPT_VERSION=' update-tailscale.sh | head -1 | cut -d'"' -f2)
-          readme_version=$(grep 'badge/script-' readme.md | grep -o '[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}' | head -1)
-
-          if [ "$script_version" != "$readme_version" ]; then
-            echo "❌ Version mismatch:"
-            echo "   Script: $script_version"
-            echo "   README: $readme_version"
-            exit 1
-          fi
-
-          echo "✓ Version badge is consistent ($script_version)"
-
   integration-check:
     name: Integration Checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
