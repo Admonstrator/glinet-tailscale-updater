@@ -88,12 +88,12 @@ jobs:
           # Generate small binary tags by removing unneeded features for routers
           # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
           # Remove desktop/enterprise features that aren't needed on routers
-          FEATURES_TO_REMOVE="ace,appconnectors,aws,bird,capture,cliconndiag,clientupdate,cloud"
+          FEATURES_TO_REMOVE="ace,aws,bird,capture,clientupdate,cloud"
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,debugeventbus,debugportmapper,desktop_sessions"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},doctor,drive,identityfederation,kube,linkspeed,linuxdnsfight"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},drive,identityfederation,kube,linkspeed,linuxdnsfight"
           FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},netlog,networkmanager,oauthkey,outboundproxy,posture"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,serve,synology"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tailnetlock,tap,tpm,wakeonlan,webclient"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,synology"
+          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tap,tpm,wakeonlan,webclient"
           SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
           # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
           BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
