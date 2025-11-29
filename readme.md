@@ -6,7 +6,7 @@
 
 **Keep Tailscale up-to-date on your GL.iNet router with ease!**
 
-[![Latest Release](https://img.shields.io/badge/release-v1.90.8-blue?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest) [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE) [![Stars](https://img.shields.io/badge/stars-357-brightgreen?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/stargazers)
+[![Latest Release](https://img.shields.io/badge/release-v1.90.9-blue?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest) [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE) [![Stars](https://img.shields.io/badge/stars-373-brightgreen?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/stargazers)
 
 ---
 
@@ -51,6 +51,8 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 | **Router** | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
 | **Architecture** | arm64, armv7, mips, mipsle, or x86_64 |
 | **Free Space** | At least 15 MB (can be bypassed with `--ignore-free-space`) |
+
+> ⚠️ **Please make sure, that you enabled Tailscale in the GL.iNet router settings before running this script!**
 
 ---
 
@@ -252,23 +254,6 @@ Want to contribute? Pull requests are welcome!
 
 ---
 
-## 🤝 Sponsors
-
-This project is proudly supported by:
-
-<div align="center">
-
-
-<img src="./images/termius-logo.webp" width="300" alt="GL.iNet Robben Logo" style="border-radius: 10px; margin: 20px 0;">
-
-**[Termius](https://termius.com/)** - The SSH client that works everywhere
-
-Termius provides powerful SSH client solutions for developers and system administrators. Perfect for managing your GL.iNet router and other infrastructure from anywhere.
-
-</div>
-
----
-
 ## 📜 License
 
 This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
@@ -301,6 +286,6 @@ This project is part of a comprehensive collection of tools for GL.iNet routers.
 
 <div align="center">
 
-_Last updated: 2025-11-23_
+_Last updated: 2025-11-29_
 
 </div>
