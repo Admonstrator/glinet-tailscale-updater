@@ -1,4 +1,6 @@
 name: Update Repository Badges
+permissions:
+  contents: write
 
 on:
   workflow_dispatch:  # Manually triggered
