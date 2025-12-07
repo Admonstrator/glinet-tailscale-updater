@@ -6,7 +6,7 @@
 
 **Keep Tailscale up-to-date on your GL.iNet router with ease!**
 
-[![Latest Release](https://img.shields.io/badge/release-v1.90.9-blue?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest) [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE) [![Stars](https://img.shields.io/badge/stars-375-brightgreen?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/stargazers)
+[![Latest Release](https://img.shields.io/badge/release-v1.90.9-blue?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest) [![License](https://img.shields.io/github/license/Admonstrator/glinet-tailscale-updater?style=for-the-badge)](LICENSE) [![Stars](https://img.shields.io/badge/stars-389-brightgreen?style=for-the-badge&logo=github)](https://github.com/Admonstrator/glinet-tailscale-updater/stargazers)
 
 ---
 
@@ -286,6 +286,6 @@ This project is part of a comprehensive collection of tools for GL.iNet routers.
 
 <div align="center">
 
-_Last updated: 2025-11-30_
+_Last updated: 2025-12-07_
 
 </div>
