@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck shell=ash
 
 # --- SETUP & KONFIGURATION ---
 E=$(printf '\033')
@@ -16,8 +17,11 @@ RAND_POOL=$(awk -v n=600 'BEGIN { srand(); for(i=0;i<n;i++) printf "%d ", int(ra
 
 # Hilfsfunktion um Zahlen aus dem Pool zu holen
 get_num() {
-    local idx=$1; local max=$2; local offset=$3
-    local val=$(echo "$RAND_POOL" | cut -d' ' -f"$idx")
+    local idx=$1
+    local max=$2
+    local offset=$3
+    local val
+    val=$(echo "$RAND_POOL" | cut -d' ' -f"$idx")
     echo "$(( (val % max) + offset ))"
 }
 
