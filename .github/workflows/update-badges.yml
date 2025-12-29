@@ -9,7 +9,7 @@ on:
 
 jobs:
   update-badges:
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository

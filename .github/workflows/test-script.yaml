@@ -15,7 +15,7 @@ on:
 jobs:
   shellcheck:
     name: ShellCheck Analysis
-    runs-on: [self-hosted, linux, x64, [self-hosted, linux, x64, ubuntu-latest]]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
 
   syntax-check:
     name: Syntax Validation
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         shell: [dash, bash, sh]
@@ -49,7 +49,7 @@ jobs:
 
   flag-tests:
     name: Flag Parsing Tests
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
 
   posix-compliance:
     name: POSIX Compliance Check
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -105,7 +105,7 @@ jobs:
 
   log-function-tests:
     name: Log Function Tests
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -196,7 +196,7 @@ jobs:
 
   readme-consistency:
     name: README Consistency Check
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -220,7 +220,7 @@ jobs:
 
   integration-check:
     name: Integration Checks
-    runs-on: [self-hosted, linux, x64, ubuntu-latest]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
