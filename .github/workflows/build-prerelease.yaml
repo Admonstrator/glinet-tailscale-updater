@@ -9,7 +9,7 @@ env:
   GIT_AUTHOR_NAME: "Admonstrator"
 jobs:
   check-versions:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: read
     outputs:
@@ -32,7 +32,7 @@ jobs:
           echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Prerelease Tag: $latest_tag_small"
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: write
     needs: check-versions
@@ -112,7 +112,7 @@ jobs:
           name: ${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
           path: ./${{ env.FILE_NAME }}-${{ matrix.os }}-${{ matrix.platform }}
   publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: write
     needs:

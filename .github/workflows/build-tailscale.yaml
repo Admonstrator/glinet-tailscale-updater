@@ -11,7 +11,7 @@ env:
   GIT_AUTHOR_NAME: "Admonstrator"
 jobs:
   check-versions:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: read
     outputs:
@@ -34,7 +34,7 @@ jobs:
           echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag_small"
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: write
     needs: check-versions
@@ -125,7 +125,7 @@ jobs:
           path: ./version.txt
 
   publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, ubuntu-latest]
     permissions:
       contents: write
     needs:
