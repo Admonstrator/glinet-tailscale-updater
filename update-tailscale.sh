@@ -4,7 +4,7 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-SCRIPT_VERSION="2025.12.28.02"
+SCRIPT_VERSION="2026.01.06.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://get.admon.me/tailscale-update"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -573,18 +573,6 @@ invoke_outro() {
             log "WARNING" "Tailscale is not enabled in GL.iNet GUI"
             log "WARNING" "Make sure to enable it after the update"
             log "INFO" "See https://glinet.admon.me/tse for instructions"
-        fi
-    fi
-
-    # Celebrate!
-    printf "\033[93mDo you want to see a little surprise? (y/N) \033[0m"
-    read -r answer_surprise
-    answer_surprise_lower=$(echo "$answer_surprise" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-    if [ "$answer_surprise_lower" != "${answer_surprise_lower#[y]}" ]; then
-        wget -q -O /tmp/firework.sh "https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/main/firework.sh"
-        if [ -f "/tmp/firework.sh" ]; then
-            sh /tmp/firework.sh
-            rm /tmp/firework.sh
         fi
     fi
 }
