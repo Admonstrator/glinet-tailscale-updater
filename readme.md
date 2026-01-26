@@ -48,7 +48,7 @@ Created by [Admon](https://forum.gl-inet.com/u/admon/) for the GL.iNet community
 
 | Requirement | Details |
 |-------------|---------|
-| **Router** | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3) |
+| **Router** | GL.iNet router with firmware 4.x (including GL-BE9300 Flint 3, GL-AR750S Slate) |
 | **Architecture** | arm64, armv7, mips, mipsle, or x86_64 |
 | **Free Space** | At least 15 MB (can be bypassed with `--ignore-free-space`) |
 
