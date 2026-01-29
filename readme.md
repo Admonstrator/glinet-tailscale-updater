@@ -81,6 +81,7 @@ The `update-tailscale.sh` script supports the following arguments:
 | `--no-upx` | Skips UPX compression. Binaries will be larger but installation is faster. |
 | `--no-download` | Skips downloading binaries. Use pre-downloaded archive at `/tmp/tailscale.tar.gz`. |
 | `--no-tiny` | Uses full Tailscale binaries instead of tiny version. Not recommended for GL.iNet routers. |
+| `--skip-config` | Skips the adjustment of the gl_tailscale script. |
 | `--select-release` | Displays available releases and lets you choose a specific version. ⚠️ Downgrading not officially supported! |
 | `--testing` | Uses prerelease/testing versions from the testing branch. ⚠️ Use at your own risk! May contain bugs or experimental features. |
 | `--ssh` | Enables Tailscale SSH feature after installation. |
