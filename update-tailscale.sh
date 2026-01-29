@@ -4,7 +4,7 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-SCRIPT_VERSION="2026.01.06.01"
+SCRIPT_VERSION="2026.01.29.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://get.admon.me/tailscale-update"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
@@ -23,6 +23,7 @@ SHOW_LOG=0
 ASCII_MODE=0
 TESTING=0
 ENABLE_SSH=0
+SKIP_CONFIG=0
 USER_WANTS_UPX=""
 USER_WANTS_SSH=""
 USER_WANTS_PERSISTENCE=""
@@ -589,6 +590,7 @@ invoke_help() {
     printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
     printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
     printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
+    printf "  \033[93m--skip-config\033[0m        \033[97mSkip automatic configuration and show manual steps instead\033[0m\n"
     printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
     printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
     printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
@@ -623,6 +625,27 @@ invoke_update() {
 
 invoke_modify_script() {
     if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
+        if [ "$SKIP_CONFIG" -eq 1 ]; then
+            log "WARNING" "Skipping automatic modification of gl_tailscale script as requested."
+            log "INFO" "Please manually apply the following changes:"
+            echo ""
+            echo "1. Edit /usr/bin/gl_tailscale and find the line starting with 'param=\"--advertise-routes=\$routes\"'"
+            echo "   Change it to: param=\"--advertise-routes=\$routes --stateful-filtering=false\""
+            echo ""
+            if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
+                echo "2. To enable SSH, run the following commands:"
+                echo "   uci set tailscale.settings.ssh_enabled=1"
+                echo "   uci commit tailscale"
+                echo ""
+                echo "3. Add the following block to /usr/bin/gl_tailscale after the function 'add_guest_policy_route':"
+                echo '        ssh_enabled=$(uci -q get tailscale.settings.ssh_enabled)'
+                echo '        if [ "$ssh_enabled" = "1" ]; then'
+                echo '            param="$param --ssh"'
+                echo '        fi'
+            fi
+            return 0
+        fi
+
         log "INFO" "Modifying gl_tailscale script to work with the new tailscale version"
         # Restore original gl_tailscale script from rom first
         if [ -f "/rom/usr/bin/gl_tailscale" ]; then
@@ -837,6 +860,9 @@ for arg in "$@"; do
         ;;
     --ssh)
         ENABLE_SSH=1
+        ;;
+    --skip-config)
+        SKIP_CONFIG=1
         ;;
     *)
         echo "Unknown argument: $arg"
