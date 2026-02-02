@@ -4,12 +4,16 @@
 # Description: This script updates tailscale on GL.iNet routers
 # Thread: https://forum.gl-inet.com/t/how-to-update-tailscale-on-arm64/37582
 # Author: Admon
-SCRIPT_VERSION="2026.01.29.01"
+SCRIPT_VERSION="2026.02.02.01"
 SCRIPT_NAME="update-tailscale.sh"
 UPDATE_URL="https://get.admon.me/tailscale-update"
 TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/latest/download/"
-#
-# Variables
+
+# ==============================================================================
+# Variables & Constants
+# ==============================================================================
+
+# User Preferences (Defaults)
 IGNORE_FREE_SPACE=0
 FORCE=0
 FORCE_UPGRADE=0
@@ -24,128 +28,77 @@ ASCII_MODE=0
 TESTING=0
 ENABLE_SSH=0
 SKIP_CONFIG=0
+
+# Runtime Variables
 USER_WANTS_UPX=""
 USER_WANTS_SSH=""
 USER_WANTS_PERSISTENCE=""
+
+# Constants - Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 INFO='\033[0m' # No Color
 
-# Functions
-invoke_intro() {
-    echo "============================================================"
-    echo ""
-    echo "  OpenWrt/GL.iNet Tailscale Updater by Admon"
-    echo "  Version: $SCRIPT_VERSION"
-    echo ""
-    echo "============================================================"
-    echo ""
-    echo "  WARNING: THIS SCRIPT MIGHT HARM YOUR ROUTER!"
-    echo "  Use at your own risk. Only proceed if you know"
-    echo "  what you're doing."
-    echo ""
-    echo "============================================================"
-    echo ""
-    echo "  Support this project:"
-    echo "    - GitHub: github.com/sponsors/admonstrator"
-    echo "    - Ko-fi: ko-fi.com/admon"
-    echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
-    echo ""
-    echo "============================================================"
-    echo ""
-    }
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
 
-collect_user_preferences() {
-    log "INFO" "Collecting user preferences before starting the update process"
-    echo ""
+log() {
+    local level=$1
+    local message=$2
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    local color=$INFO # Default to no color
+    local symbol=""
 
-    # Ask about UPX compression (only if not using tiny version and no flags set)
-    if [ "$NO_TINY" -eq 1 ]; then
-        if [ "$NO_UPX" -eq 1 ]; then
-            USER_WANTS_UPX="n"
-            log "INFO" "--no-upx flag is used. Skipping UPX compression"
-        elif [ "$FORCE" -eq 1 ]; then
-            USER_WANTS_UPX="y"
-            log "INFO" "--force flag is used. UPX compression enabled"
+    # Assign color and symbol based on level
+    case "$level" in
+    ERROR)
+        color=$RED
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[X] "
         else
-            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
-            echo "| UPX Compression                                                                |"
-            echo "| Compressing the binaries will save space but takes 2-3 minutes per binary.     |"
-            echo "| Recommended if you have limited storage space.                                 |"
-            echo "└────────────────────────────────────────────────────────────────────────────────┘"
-            printf "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) "
-            read -r USER_WANTS_UPX
-            USER_WANTS_UPX=$(echo "$USER_WANTS_UPX" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-            echo ""
+            symbol="❌ "
         fi
+        ;;
+    WARNING)
+        color=$YELLOW
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[!] "
+        else
+            symbol="⚠️  "
+        fi
+        ;;
+    SUCCESS)
+        color=$GREEN
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[OK] "
+        else
+            symbol="✅ "
+        fi
+        ;;
+    INFO)
+        if [ "$ASCII_MODE" -eq 1 ]; then
+            symbol="[->] "
+        else
+            symbol="ℹ️  "
+        fi
+        ;;
+    esac
+
+    # Build output with or without timestamp
+    if [ "$SHOW_LOG" -eq 1 ]; then
+        printf "${color}[$timestamp] $symbol$message${INFO}\n"
     else
-        # Tiny version doesn't need UPX compression
-        USER_WANTS_UPX="n"
+        printf "${color}$symbol$message${INFO}\n"
     fi
+}
 
-    # Ask about SSH (only for GL.iNet routers)
-    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
-        if [ "$ENABLE_SSH" -eq 1 ]; then
-            USER_WANTS_SSH="y"
-            log "INFO" "--ssh flag is used. Tailscale SSH will be enabled"
-        elif [ "$FORCE" -eq 1 ]; then
-            USER_WANTS_SSH="n"
-            log "INFO" "--force flag is used. Tailscale SSH will be skipped"
-        else
-            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
-            echo "| Tailscale SSH                                                                  |"
-            echo "| This enables SSH access to your router through Tailscale.                      |"
-            echo "| You can then SSH to your router using the Tailscale web interface.             |"
-            echo "| See https://tailscale.com/kb/1193/tailscale-ssh/ for more information.         |"
-            echo "| This setting can be changed later via UCI config.                              |"
-            echo "└────────────────────────────────────────────────────────────────────────────────┘"
-            printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
-            read -r USER_WANTS_SSH
-            USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-            echo ""
-        fi
-    fi
+# ==============================================================================
+# System Checks & Pre-flight
+# ==============================================================================
 
-    # Ask about persistence (only for GL.iNet routers)
-    if [ "$IS_GLINET" -eq 1 ]; then
-        if [ "$FORCE" -eq 1 ]; then
-            USER_WANTS_PERSISTENCE="y"
-            log "INFO" "--force flag is used. Installation will be made permanent"
-        else
-            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
-            echo "| Make Installation Permanent                                                    |"
-            echo "| This will make your tailscale installation persistent over firmware upgrades.  |"
-            echo "| Please note that this is not officially supported by GL.iNet.                  |"
-            echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
-            echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
-            echo "└────────────────────────────────────────────────────────────────────────────────┘"
-            printf "> \033[36mDo you want to make the installation permanent?\033[0m (y/N) "
-            read -r USER_WANTS_PERSISTENCE
-            USER_WANTS_PERSISTENCE=$(echo "$USER_WANTS_PERSISTENCE" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-            echo ""
-        fi
-    fi
-
-    # Final confirmation unless --force is used
-    if [ "$FORCE" -eq 0 ]; then
-        printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
-        printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
-        printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
-        read -r answer
-        answer_lower=$(echo "$answer" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-        if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
-            log "INFO" "Starting update process..."
-            echo ""
-        else
-            log "SUCCESS" "Ok, see you next time!"
-            exit 0
-        fi
-    else
-        log "WARNING" "--force flag is used. Continuing without final confirmation"
-        echo ""
-    fi
-    }
 preflight_check() {
     AVAILABLE_SPACE=$(df -P -k / | tail -n 1 | awk '{print $4/1024}')
     AVAILABLE_SPACE=$(printf "%.0f" "$AVAILABLE_SPACE")
@@ -183,7 +136,7 @@ preflight_check() {
         # Determine from OpenWrt release info if devices uses mipsle architecture
         MIPS_ARCH=$(sed -n "s/^DISTRIB_ARCH='\(.*\)_.*'$/\1/p" /etc/openwrt_release)
         case "$MIPS_ARCH" in
-            "mipsel")
+            "mipsel" | "mips_24kc")
                 TINY_ARCH="mipsle"
                 log "SUCCESS" "Architecture: mipsle"
                 ;;
@@ -242,6 +195,10 @@ backup() {
     log "INFO" "The binaries will not be backed up, you can restore them by using the --restore flag."
 }
 
+# ==============================================================================
+# Update Logic (Download, Compress, Install)
+# ==============================================================================
+
 get_latest_tailscale_version_tiny() {
     # Will attempt to download the latest version of tailscale from the updater repository
     # This is the default behavior
@@ -291,7 +248,15 @@ get_latest_tailscale_version() {
         elif [ "$ARCH" = "x86_64" ]; then
             TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_amd64\.tgz' | head -n 1)
         elif [ "$ARCH" = "mips" ]; then
-            TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+            MIPS_ARCH=$(sed -n "s/^DISTRIB_ARCH='\(.*\)_.*'$/\1/p" /etc/openwrt_release)
+            case "$MIPS_ARCH" in
+                "mipsel" | "mips_24kc")
+                    TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mipsle\.tgz' | head -n 1)
+                    ;;
+                *)
+                    TAILSCALE_VERSION_NEW=$(wget -qO- https://pkgs.tailscale.com/stable/ | grep -o 'tailscale_[0-9]*\.[0-9]*\.[0-9]*_mips\.tgz' | head -n 1)
+                    ;;
+            esac
         fi
         if [ -z "$TAILSCALE_VERSION_NEW" ]; then
             log "ERROR" "Could not get latest tailscale version. Please check your internet connection."
@@ -451,6 +416,10 @@ install_tiny_tailscale() {
     start_tailscale
 }
 
+# ==============================================================================
+# Configuration & Persistence
+# ==============================================================================
+
 upgrade_persistance() {
     if [ "$IS_GLINET" -eq 1 ]; then
         # Use the pre-collected user preference for persistence
@@ -479,147 +448,6 @@ upgrade_persistance() {
     else
         log "INFO" "OpenWrt detected - installation is already persistent"
         log "INFO" "No additional steps needed for persistence on OpenWrt"
-    fi
-}
-
-restore() {
-    if [ ! -f "/rom/usr/sbin/tailscale" ] || [ ! -f "/rom/usr/sbin/tailscaled" ]; then
-        log "ERROR" "Cannot restore to factory default!"
-        log "ERROR" "tailscale binaries (tailscale, tailscaled) not found in /rom."
-        log "ERROR" "This happens if you are not using GL.iNet firmware or running the script on a non-GL.iNet device."
-        log "ERROR" "You might need to use --force --select-release to install a specific version."
-        exit 1
-    fi
-    printf "\033[31mWARNING: This will restore the tailscale binary to factory default!\033[0m\n"
-    printf "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m\n"
-    printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
-    printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
-    printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
-    if [ "$FORCE" -eq 1 ]; then
-        log "WARNING" "--force flag is used. Continuing"
-        answer_restore="y"
-    else
-        read -r answer_restore
-    fi
-    answer_restore_lower=$(echo "$answer_restore" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
-    if [ "$answer_restore_lower" != "${answer_restore_lower#[y]}" ]; then
-        stop_tailscale
-        sleep 5
-        if [ -f "/usr/sbin/tailscale" ]; then
-            rm /usr/sbin/tailscale
-        fi
-        if [ -f "/usr/sbin/tailscaled" ]; then
-            rm /usr/sbin/tailscaled
-        fi
-        log "INFO" "Restoring tailscale binary from rom"
-        if [ -f "/rom/usr/sbin/tailscale" ]; then
-            cp /rom/usr/sbin/tailscale /usr/sbin/tailscale
-            log "SUCCESS" "tailscale binary restored"
-        fi
-        log "INFO" "Restoring tailscaled binary from rom"
-        if [ -f "/rom/usr/sbin/tailscaled" ]; then
-            cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
-            log "SUCCESS" "tailscaled binary restored"
-        fi
-        if [ -f "/rom/usr/bin/gl_tailscale" ]; then
-            rm /usr/bin/gl_tailscale
-            cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
-            log "SUCCESS" "gl_tailscale script restored"
-        else
-            log "WARNING" "gl_tailscale script not found in /rom"
-        fi
-        # Remove from /etc/sysupgrade.conf
-        log "INFO" "Removing entries from /etc/sysupgrade.conf"
-        sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
-        sed -i '/\/usr\/sbin\/tailscaled/d' /etc/sysupgrade.conf
-        sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
-        sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
-        log "SUCCESS" "Tailscale restored to factory default."
-        log "WARNING" "Restarting tailscale might or might not work"
-        log "WARNING" "You might need to re-authenticate your device"
-        start_tailscale
-        invoke_outro
-    else
-        log "SUCCESS" "Ok, see you next time!"
-        exit 1
-    fi
-}
-
-invoke_outro() {
-    log "SUCCESS" "Script finished successfully. The current tailscale version (software, daemon) is:"
-    tailscale version
-    tailscaled --version
-    echo ""
-    echo ""
-    echo "If you like this script, please consider supporting the project:"
-    echo "  - GitHub: github.com/sponsors/admonstrator"
-    echo "  - Ko-fi: ko-fi.com/admon"
-    echo "  - Buy Me a Coffee: buymeacoffee.com/admon"
-    
-    # Show a warning that SSH will disconnect if you are conected via Tailscale SSH
-    # Continue to enable Tailscale SSH if requested
-    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
-        log "INFO" "Enabling Tailscale SSH support as requested"
-        log "WARNING" "If you are connected to your router via Tailscale SSH, you will be disconnected now."
-        tailscale set --ssh --accept-risk=lose-ssh
-        log "SUCCESS" "Tailscale SSH support enabled."
-    fi
-
-    # Check if Tailscale is enabled in GL.iNet GUI
-    if [ "$IS_GLINET" -eq 1 ]; then
-        TAILSCALE_ENABLED=$(uci -q get tailscale.settings.enabled)
-        if [ "$TAILSCALE_ENABLED" = "0" ]; then
-            echo ""
-            echo ""
-            log "WARNING" "Tailscale is not enabled in GL.iNet GUI"
-            log "WARNING" "Make sure to enable it after the update"
-            log "INFO" "See https://glinet.admon.me/tse for instructions"
-        fi
-    fi
-}
-
-invoke_help() {
-    printf "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93mOPTIONS\033[0m]\n"
-    printf "\033[1mOptions:\033[0m\n"
-    printf "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m\n"
-    printf "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m\n"
-    printf "  \033[93m--force-upgrade\033[0m      \033[97mForce upgrade even if already up to date\033[0m\n"
-    printf "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m\n"
-    printf "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m\n"
-    printf "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m\n"
-    printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
-    printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
-    printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
-    printf "  \033[93m--skip-config\033[0m        \033[97mSkip automatic configuration and show manual steps instead\033[0m\n"
-    printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
-    printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
-    printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
-    printf "  \033[93m--help\033[0m               \033[97mShow this help\033[0m\n"
-}
-
-invoke_update() {
-    log "INFO" "Checking for script updates"
-    local update_url="$UPDATE_URL"
-    if [ "$TESTING" -eq 1 ]; then
-        update_url="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
-        log "INFO" "Testing mode: Using testing branch for script updates"
-    fi
-    SCRIPT_VERSION_NEW=$(wget -qO- "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
-    if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
-        log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
-        log "INFO" "Updating the script ..."
-        wget -q -O "/tmp/$SCRIPT_NAME" "$update_url"
-        # Get current script path
-        SCRIPT_PATH=$(readlink -f "$0")
-        # Replace current script with updated script
-        rm "$SCRIPT_PATH"
-        mv /tmp/$SCRIPT_NAME "$SCRIPT_PATH"
-        chmod +x "$SCRIPT_PATH"
-        log "INFO" "The script has been updated. It will now restart ..."
-        sleep 3
-        exec "$SCRIPT_PATH" "$@"
-    else
-        log "SUCCESS" "The script is up to date"
     fi
 }
 
@@ -691,6 +519,10 @@ invoke_modify_script() {
     fi
 }
 
+# ==============================================================================
+# Service Management
+# ==============================================================================
+
 restart_tailscale() {
     stop_tailscale
     start_tailscale
@@ -724,58 +556,143 @@ stop_tailscale() {
     fi
 }
 
-log() {
-    local level=$1
-    local message=$2
-    local timestamp
-    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-    local color=$INFO # Default to no color
-    local symbol=""
+# ==============================================================================
+# User Interaction & Special Modes
+# ==============================================================================
 
-    # Assign color and symbol based on level
-    case "$level" in
-    ERROR)
-        color=$RED
-        if [ "$ASCII_MODE" -eq 1 ]; then
-            symbol="[X] "
-        else
-            symbol="❌ "
-        fi
-        ;;
-    WARNING)
-        color=$YELLOW
-        if [ "$ASCII_MODE" -eq 1 ]; then
-            symbol="[!] "
-        else
-            symbol="⚠️  "
-        fi
-        ;;
-    SUCCESS)
-        color=$GREEN
-        if [ "$ASCII_MODE" -eq 1 ]; then
-            symbol="[OK] "
-        else
-            symbol="✅ "
-        fi
-        ;;
-    INFO)
-        if [ "$ASCII_MODE" -eq 1 ]; then
-            symbol="[->] "
-        else
-            symbol="ℹ️  "
-        fi
-        ;;
-    esac
+invoke_help() {
+    printf "\033[1mUsage:\033[0m \033[92m./update-tailscale.sh\033[0m [\033[93mOPTIONS\033[0m]\n"
+    printf "\033[1mOptions:\033[0m\n"
+    printf "  \033[93m--ignore-free-space\033[0m  \033[97mIgnore free space check\033[0m\n"
+    printf "  \033[93m--force\033[0m              \033[97mDo not ask for confirmation\033[0m\n"
+    printf "  \033[93m--force-upgrade\033[0m      \033[97mForce upgrade even if already up to date\033[0m\n"
+    printf "  \033[93m--restore\033[0m            \033[97mRestore tailscale to factory default\033[0m\n"
+    printf "  \033[93m--no-upx\033[0m             \033[97mDo not compress tailscale with UPX\033[0m\n"
+    printf "  \033[93m--no-download\033[0m        \033[97mDo not download tailscale\033[0m\n"
+    printf "  \033[93m--no-tiny\033[0m            \033[97mDo not use the tiny version of tailscale\033[0m\n"
+    printf "  \033[93m--select-release\033[0m     \033[97mSelect a specific release version\033[0m\n"
+    printf "  \033[93m--ssh\033[0m                \033[97mEnable Tailscale SSH support automatically\033[0m\n"
+    printf "  \033[93m--skip-config\033[0m        \033[97mSkip automatic configuration and show manual steps instead\033[0m\n"
+    printf "  \033[93m--testing\033[0m            \033[97mUse testing/prerelease versions from testing branch\033[0m\n"
+    printf "  \033[93m--log\033[0m                \033[97mShow timestamps in log messages\033[0m\n"
+    printf "  \033[93m--ascii\033[0m              \033[97mUse ASCII characters instead of emojis\033[0m\n"
+    printf "  \033[93m--help\033[0m               \033[97mShow this help\033[0m\n"
+}
 
-    # Build output with or without timestamp
-    if [ "$SHOW_LOG" -eq 1 ]; then
-        printf "${color}[$timestamp] $symbol$message${INFO}\n"
+invoke_intro() {
+    echo "============================================================"
+    echo ""
+    echo "  OpenWrt/GL.iNet Tailscale Updater by Admon"
+    echo "  Version: $SCRIPT_VERSION"
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  WARNING: THIS SCRIPT MIGHT HARM YOUR ROUTER!"
+    echo "  Use at your own risk. Only proceed if you know"
+    echo "  what you're doing."
+    echo ""
+    echo "============================================================"
+    echo ""
+    echo "  Support this project:"
+    echo "    - GitHub: github.com/sponsors/admonstrator"
+    echo "    - Ko-fi: ko-fi.com/admon"
+    echo "    - Buy Me a Coffee: buymeacoffee.com/admon"
+    echo ""
+    echo "============================================================"
+    echo ""
+}
+
+collect_user_preferences() {
+    log "INFO" "Collecting user preferences before starting the update process"
+    echo ""
+
+    # Ask about UPX compression (only if not using tiny version and no flags set)
+    if [ "$NO_TINY" -eq 1 ]; then
+        if [ "$NO_UPX" -eq 1 ]; then
+            USER_WANTS_UPX="n"
+            log "INFO" "--no-upx flag is used. Skipping UPX compression"
+        elif [ "$FORCE" -eq 1 ]; then
+            USER_WANTS_UPX="y"
+            log "INFO" "--force flag is used. UPX compression enabled"
+        else
+            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+            echo "| UPX Compression                                                                |"
+            echo "| Compressing the binaries will save space but takes 2-3 minutes per binary.     |"
+            echo "| Recommended if you have limited storage space.                                 |"
+            echo "└────────────────────────────────────────────────────────────────────────────────┘"
+            printf "> \033[36mDo you want to compress the binaries with UPX to save space?\033[0m (y/N) "
+            read -r USER_WANTS_UPX
+            USER_WANTS_UPX=$(echo "$USER_WANTS_UPX" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+            echo ""
+        fi
     else
-        printf "${color}$symbol$message${INFO}\n"
+        # Tiny version doesn't need UPX compression
+        USER_WANTS_UPX="n"
+    fi
+
+    # Ask about SSH (only for GL.iNet routers)
+    if [ "$IS_GLINET" -eq 1 ] && [ -f "/usr/bin/gl_tailscale" ]; then
+        if [ "$ENABLE_SSH" -eq 1 ]; then
+            USER_WANTS_SSH="y"
+            log "INFO" "--ssh flag is used. Tailscale SSH will be enabled"
+        elif [ "$FORCE" -eq 1 ]; then
+            USER_WANTS_SSH="n"
+            log "INFO" "--force flag is used. Tailscale SSH will be skipped"
+        else
+            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+            echo "| Tailscale SSH                                                                  |"
+            echo "| This enables SSH access to your router through Tailscale.                      |"
+            echo "| You can then SSH to your router using the Tailscale web interface.             |"
+            echo "| See https://tailscale.com/kb/1193/tailscale-ssh/ for more information.         |"
+            echo "| This setting can be changed later via UCI config.                              |"
+            echo "└────────────────────────────────────────────────────────────────────────────────┘"
+            printf "> \033[36mDo you want to enable Tailscale SSH?\033[0m (y/N) "
+            read -r USER_WANTS_SSH
+            USER_WANTS_SSH=$(echo "$USER_WANTS_SSH" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+            echo ""
+        fi
+    fi
+
+    # Ask about persistence (only for GL.iNet routers)
+    if [ "$IS_GLINET" -eq 1 ]; then
+        if [ "$FORCE" -eq 1 ]; then
+            USER_WANTS_PERSISTENCE="y"
+            log "INFO" "--force flag is used. Installation will be made permanent"
+        else
+            echo "┌────────────────────────────────────────────────────────────────────────────────┐"
+            echo "| Make Installation Permanent                                                    |"
+            echo "| This will make your tailscale installation persistent over firmware upgrades.  |"
+            echo "| Please note that this is not officially supported by GL.iNet.                  |"
+            echo "| It could lead to issues, even if not likely. Just keep that in mind.           |"
+            echo "| In worst case, you might need to remove the config from /etc/sysupgrade.conf   |"
+            echo "└────────────────────────────────────────────────────────────────────────────────┘"
+            printf "> \033[36mDo you want to make the installation permanent?\033[0m (y/N) "
+            read -r USER_WANTS_PERSISTENCE
+            USER_WANTS_PERSISTENCE=$(echo "$USER_WANTS_PERSISTENCE" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+            echo ""
+        fi
+    fi
+
+    # Final confirmation unless --force is used
+    if [ "$FORCE" -eq 0 ]; then
+        printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
+        printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
+        printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
+        read -r answer
+        answer_lower=$(echo "$answer" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+        if [ "$answer_lower" != "${answer_lower#[y]}" ]; then
+            log "INFO" "Starting update process..."
+            echo ""
+        else
+            log "SUCCESS" "Ok, see you next time!"
+            exit 0
+        fi
+    else
+        log "WARNING" "--force flag is used. Continuing without final confirmation"
+        echo ""
     fi
 }
 
-# Function to choose a GitHub release label
 choose_release_label() {
     log "INFO" "Fetching available release labels..."
     available_labels=$(wget -qO- "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name":"[^"]*' | sed 's/"tag_name":"//g')
@@ -818,117 +735,251 @@ choose_release_label() {
     fi
 }
 
-# Read arguments
-for arg in "$@"; do
-    case $arg in
-    --help)
-        invoke_help
-        exit 0
-        ;;
-    --force)
-        FORCE=1
-        ;;
-    --ignore-free-space)
-        IGNORE_FREE_SPACE=1
-        ;;
-    --restore)
-        RESTORE=1
-        ;;
-    --no-upx)
-        NO_UPX=1
-        ;;
-    --no-download)
-        NO_DOWNLOAD=1
-        ;;
-    --no-tiny)
-        NO_TINY=1
-        ;;
-    --select-release)
-        SELECT_RELEASE=1
-        ;;
-    --testing)
-        TESTING=1
-        ;;
-    --log)
-        SHOW_LOG=1
-        ;;
-    --ascii)
-        ASCII_MODE=1
-        ;;
-    --force-upgrade)
-        FORCE_UPGRADE=1
-        ;;
-    --ssh)
-        ENABLE_SSH=1
-        ;;
-    --skip-config)
-        SKIP_CONFIG=1
-        ;;
-    *)
-        echo "Unknown argument: $arg"
-        invoke_help
-        exit 1
-        ;;
-    esac
-done
+invoke_update() {
+    log "INFO" "Checking for script updates"
+    local update_url="$UPDATE_URL"
+    if [ "$TESTING" -eq 1 ]; then
+        update_url="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
+        log "INFO" "Testing mode: Using testing branch for script updates"
+    fi
+    SCRIPT_VERSION_NEW=$(wget -qO- "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
+    if [ -n "$SCRIPT_VERSION_NEW" ] && [ "$SCRIPT_VERSION_NEW" != "$SCRIPT_VERSION" ]; then
+        log "WARNING" "A new version of the script is available: $SCRIPT_VERSION_NEW"
+        log "INFO" "Updating the script ..."
+        wget -q -O "/tmp/$SCRIPT_NAME" "$update_url"
+        # Get current script path
+        SCRIPT_PATH=$(readlink -f "$0")
+        # Replace current script with updated script
+        rm "$SCRIPT_PATH"
+        mv /tmp/$SCRIPT_NAME "$SCRIPT_PATH"
+        chmod +x "$SCRIPT_PATH"
+        log "INFO" "The script has been updated. It will now restart ..."
+        sleep 3
+        exec "$SCRIPT_PATH" "$@"
+    else
+        log "SUCCESS" "The script is up to date"
+    fi
+}
 
-# Main
-# Check if --restore flag is used, if yes, restore tailscale
-if [ "$RESTORE" -eq 1 ]; then
-    restore
-    exit 0
-fi
-
-# Set URLs based on --testing flag
-if [ "$TESTING" -eq 1 ]; then
-    log "INFO" "Testing mode enabled: Using prerelease versions"
-    TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/prerelease/"
-    UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
-fi
-
-# Check if the script is up to date
-invoke_update "$@"
-# Start the script
-invoke_intro
-preflight_check
-
-# Check if user wants to select a specific release
-if [ "$SELECT_RELEASE" -eq 1 ]; then
-    choose_release_label
-fi
-
-# Show warning if ignore-free-space is used
-if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
-    printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
-    printf "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m\n"
-    printf "\033[31m│ your router. Use it at your own risk.                                  │\033[0m\n"
-    printf "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m\n"
-    printf "\033[31m│ goes wrong.                                                            │\033[0m\n"
-    printf "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m\n"
+invoke_outro() {
+    log "SUCCESS" "Script finished successfully. The current tailscale version (software, daemon) is:"
+    tailscale version
+    tailscaled --version
     echo ""
-fi
+    echo ""
+    echo "If you like this script, please consider supporting the project:"
+    echo "  - GitHub: github.com/sponsors/admonstrator"
+    echo "  - Ko-fi: ko-fi.com/admon"
+    echo "  - Buy Me a Coffee: buymeacoffee.com/admon"
+    
+    # Show a warning that SSH will disconnect if you are conected via Tailscale SSH
+    # Continue to enable Tailscale SSH if requested
+    if [ "$USER_WANTS_SSH" != "${USER_WANTS_SSH#[y]}" ]; then
+        log "INFO" "Enabling Tailscale SSH support as requested"
+        log "WARNING" "If you are connected to your router via Tailscale SSH, you will be disconnected now."
+        tailscale set --ssh --accept-risk=lose-ssh
+        log "SUCCESS" "Tailscale SSH support enabled."
+    fi
 
-# Collect all user preferences before starting the update
-collect_user_preferences
+    # Check if Tailscale is enabled in GL.iNet GUI
+    if [ "$IS_GLINET" -eq 1 ]; then
+        TAILSCALE_ENABLED=$(uci -q get tailscale.settings.enabled)
+        if [ "$TAILSCALE_ENABLED" = "0" ]; then
+            echo ""
+            echo ""
+            log "WARNING" "Tailscale is not enabled in GL.iNet GUI"
+            log "WARNING" "Make sure to enable it after the update"
+            log "INFO" "See https://glinet.admon.me/tse for instructions"
+        fi
+    fi
+}
 
-if [ "$NO_TINY" -eq 1 ]; then
-    # Load the original tailscale
-    get_latest_tailscale_version
-    backup
-    install_tailscale
-    invoke_modify_script
-    restart_tailscale
-    upgrade_persistance
-    invoke_outro
-    exit 0
-else
-    # Load the tiny tailscale
-    get_latest_tailscale_version_tiny
-    backup
-    install_tiny_tailscale
-    invoke_modify_script
-    restart_tailscale
-    upgrade_persistance
-    invoke_outro
-    exit 0
-fi
+restore() {
+    if [ ! -f "/rom/usr/sbin/tailscale" ] || [ ! -f "/rom/usr/sbin/tailscaled" ]; then
+        log "ERROR" "Cannot restore to factory default!"
+        log "ERROR" "tailscale binaries (tailscale, tailscaled) not found in /rom."
+        log "ERROR" "This happens if you are not using GL.iNet firmware or running the script on a non-GL.iNet device."
+        log "ERROR" "You might need to use --force --select-release to install a specific version."
+        exit 1
+    fi
+    printf "\033[31mWARNING: This will restore the tailscale binary to factory default!\033[0m\n"
+    printf "\033[31mDowngrading tailscale is not officially supported. It could lead to issues.\033[0m\n"
+    printf "\033[93m┌──────────────────────────────────────────────────┐\033[0m\n"
+    printf "\033[93m| Are you sure you want to continue? (y/N)         |\033[0m\n"
+    printf "\033[93m└──────────────────────────────────────────────────┘\033[0m\n"
+    if [ "$FORCE" -eq 1 ]; then
+        log "WARNING" "--force flag is used. Continuing"
+        answer_restore="y"
+    else
+        read -r answer_restore
+    fi
+    answer_restore_lower=$(echo "$answer_restore" | tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz')
+    if [ "$answer_restore_lower" != "${answer_restore_lower#[y]}" ]; then
+        stop_tailscale
+        sleep 5
+        if [ -f "/usr/sbin/tailscale" ]; then
+            rm /usr/sbin/tailscale
+        fi
+        if [ -f "/usr/sbin/tailscaled" ]; then
+            rm /usr/sbin/tailscaled
+        fi
+        log "INFO" "Restoring tailscale binary from rom"
+        if [ -f "/rom/usr/sbin/tailscale" ]; then
+            cp /rom/usr/sbin/tailscale /usr/sbin/tailscale
+            log "SUCCESS" "tailscale binary restored"
+        fi
+        log "INFO" "Restoring tailscaled binary from rom"
+        if [ -f "/rom/usr/sbin/tailscaled" ]; then
+            cp /rom/usr/sbin/tailscaled /usr/sbin/tailscaled
+            log "SUCCESS" "tailscaled binary restored"
+        fi
+        if [ -f "/rom/usr/bin/gl_tailscale" ]; then
+            rm /usr/bin/gl_tailscale
+            cp /rom/usr/bin/gl_tailscale /usr/bin/gl_tailscale
+            log "SUCCESS" "gl_tailscale script restored"
+        else
+            log "WARNING" "gl_tailscale script not found in /rom"
+        fi
+        # Remove from /etc/sysupgrade.conf
+        log "INFO" "Removing entries from /etc/sysupgrade.conf"
+        sed -i '/\/usr\/sbin\/tailscale/d' /etc/sysupgrade.conf
+        sed -i '/\/usr\/sbin\/tailscaled/d' /etc/sysupgrade.conf
+        sed -i '/\/etc\/config\/tailscale/d' /etc/sysupgrade.conf
+        sed -i '/\/root\/tailscale_config_backup\//d' /etc/sysupgrade.conf
+        log "SUCCESS" "Tailscale restored to factory default."
+        log "WARNING" "Restarting tailscale might or might not work"
+        log "WARNING" "You might need to re-authenticate your device"
+        start_tailscale
+        invoke_outro
+    else
+        log "SUCCESS" "Ok, see you next time!"
+        exit 1
+    fi
+}
+
+# ==============================================================================
+# Main Execution Flow
+# ==============================================================================
+
+parse_arguments() {
+    for arg in "$@"; do
+        case $arg in
+        --help)
+            invoke_help
+            exit 0
+            ;;
+        --force)
+            FORCE=1
+            ;;
+        --ignore-free-space)
+            IGNORE_FREE_SPACE=1
+            ;;
+        --restore)
+            RESTORE=1
+            ;;
+        --no-upx)
+            NO_UPX=1
+            ;;
+        --no-download)
+            NO_DOWNLOAD=1
+            ;;
+        --no-tiny)
+            NO_TINY=1
+            ;;
+        --select-release)
+            SELECT_RELEASE=1
+            ;;
+        --testing)
+            TESTING=1
+            ;;
+        --log)
+            SHOW_LOG=1
+            ;;
+        --ascii)
+            ASCII_MODE=1
+            ;;
+        --force-upgrade)
+            FORCE_UPGRADE=1
+            ;;
+        --ssh)
+            ENABLE_SSH=1
+            ;;
+        --skip-config)
+            SKIP_CONFIG=1
+            ;;
+        *)
+            echo "Unknown argument: $arg"
+            invoke_help
+            exit 1
+            ;;
+        esac
+    done
+}
+
+main() {
+    parse_arguments "$@"
+
+    # Check if --restore flag is used, if yes, restore tailscale
+    if [ "$RESTORE" -eq 1 ]; then
+        restore
+        exit 0
+    fi
+
+    # Set URLs based on --testing flag
+    if [ "$TESTING" -eq 1 ]; then
+        log "INFO" "Testing mode enabled: Using prerelease versions"
+        TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/prerelease/"
+        UPDATE_URL="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
+    fi
+
+    # Check if the script is up to date
+    invoke_update "$@"
+    
+    # Start the script
+    invoke_intro
+    preflight_check
+
+    # Check if user wants to select a specific release
+    if [ "$SELECT_RELEASE" -eq 1 ]; then
+        choose_release_label
+    fi
+
+    # Show warning if ignore-free-space is used
+    if [ "$IGNORE_FREE_SPACE" -eq 1 ]; then
+        printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
+        printf "\033[31m│ WARNING: --ignore-free-space flag is used. This might potentially harm │\033[0m\n"
+        printf "\033[31m│ your router. Use it at your own risk.                                  │\033[0m\n"
+        printf "\033[31m│ You might need to reset your router to factory settings if something   │\033[0m\n"
+        printf "\033[31m│ goes wrong.                                                            │\033[0m\n"
+        printf "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m\n"
+        echo ""
+    fi
+
+    # Collect all user preferences before starting the update
+    collect_user_preferences
+
+    if [ "$NO_TINY" -eq 1 ]; then
+        # Load the original tailscale
+        get_latest_tailscale_version
+        backup
+        install_tailscale
+        invoke_modify_script
+        restart_tailscale
+        upgrade_persistance
+        invoke_outro
+        exit 0
+    else
+        # Load the tiny tailscale
+        get_latest_tailscale_version_tiny
+        backup
+        install_tiny_tailscale
+        invoke_modify_script
+        restart_tailscale
+        upgrade_persistance
+        invoke_outro
+        exit 0
+    fi
+}
+
+# Execute Main
+main "$@"
