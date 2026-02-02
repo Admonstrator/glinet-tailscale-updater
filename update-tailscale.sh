@@ -319,9 +319,10 @@ compress_binaries() {
     log "INFO" "Getting UPX"
     upx_version="$(
         wget -qO- "https://api.github.com/repos/upx/upx/releases/latest" |
-            grep 'tag_name' |
-            cut -d : -f 2 |
-            tr -d '"v, '
+            grep -o '"tag_name":"[^"]*"' |
+            sed 's/"tag_name":"//' |
+            sed 's/"//' |
+            tr -d 'v'
     )"
 
     if [ "$ARCH" = "aarch64" ]; then
@@ -695,7 +696,7 @@ collect_user_preferences() {
 
 choose_release_label() {
     log "INFO" "Fetching available release labels..."
-    available_labels=$(wget -qO- "https://api.github.com/repos/Admonstrator/glinet-tailscale-updater/releases" | grep -o '"tag_name":"[^"]*' | sed 's/"tag_name":"//g')
+    available_labels=$(wget -qO- "https://api.github.com/repos/admonstrator/glinet-tailscale-updater/releases" | grep '"tag_name"' | sed 's/.*": "\([^"]*\)".*/\1/')
     
     if [ -z "$available_labels" ]; then
         log "ERROR" "Could not retrieve release labels. Please check your internet connection."
@@ -720,7 +721,7 @@ choose_release_label() {
         exit 1
     else
         log "INFO" "You selected release label: $selected_label"
-        TAILSCALE_TINY_URL="https://github.com/Admonstrator/glinet-tailscale-updater/releases/download/$selected_label"
+        TAILSCALE_TINY_URL="https://github.com/admonstrator/glinet-tailscale-updater/releases/download/$selected_label"
         log "WARNING" "Downgrading is not officially supported by Tailscale!"
         log "WARNING" "It could lead to issues and unexpected behavior!"
         log "WARNING" "Do you want to continue? (y/N)"
@@ -739,7 +740,7 @@ invoke_update() {
     log "INFO" "Checking for script updates"
     local update_url="$UPDATE_URL"
     if [ "$TESTING" -eq 1 ]; then
-        update_url="https://raw.githubusercontent.com/Admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
+        update_url="https://raw.githubusercontent.com/admonstrator/glinet-tailscale-updater/testing/update-tailscale.sh"
         log "INFO" "Testing mode: Using testing branch for script updates"
     fi
     SCRIPT_VERSION_NEW=$(wget -qO- "$update_url" | grep -o 'SCRIPT_VERSION="[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\.[0-9]\{2\}"' | cut -d '"' -f 2 || echo "Failed to retrieve scriptversion")
