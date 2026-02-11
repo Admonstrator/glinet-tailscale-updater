@@ -962,8 +962,12 @@ create_usb_hotplug_script() {
     cat > /etc/hotplug.d/block/10-mount-tailscale-usb << 'HOTPLUG_EOF'
 #!/bin/sh
 if [ "$ACTION" = "add" ] && [ -n "$DEVNAME" ]; then
-    sleep 2
-    LABEL=$(blkid -s LABEL -o value /dev/$DEVNAME 2>/dev/null)
+    # Wait up to 5 seconds for the device to be ready
+    for i in $(seq 1 5); do
+        LABEL=$(blkid -s LABEL -o value /dev/$DEVNAME 2>/dev/null)
+        [ -n "$LABEL" ] && break
+        sleep 1
+    done
     if [ "$LABEL" = "tailscale" ]; then
         [ ! -d /mnt/usb_tailscale ] && mkdir -p /mnt/usb_tailscale
         mount -t ext4 /dev/$DEVNAME /mnt/usb_tailscale 2>/dev/null
