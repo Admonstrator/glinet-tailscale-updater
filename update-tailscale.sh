@@ -1116,7 +1116,7 @@ install_tailscale_usb() {
         exit 1
     fi
     if [ ! -f "/tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled" ]; then
-        log "ERROR" "Tailscaled binary not found"
+        log "ERROR" "Tailscaled binary not found at /tmp/tailscale/$TAILSCALE_SUBDIR_IN_TAR/tailscaled"
         exit 1
     fi
 
