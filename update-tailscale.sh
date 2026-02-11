@@ -830,7 +830,7 @@ setup_usb_storage() {
     if [ "$FORCE" -eq 0 ]; then
         printf "\033[31m┌────────────────────────────────────────────────────────────────────────┐\033[0m\n"
         printf "\033[31m│ WARNING: USB FORMATTING                                                │\033[0m\n"
-        printf "\033[31m│ This script will FORMAT: $USB_DEV                                      │\033[0m\n"
+        printf "\033[31m│ This script will FORMAT: %-16s%-36s│\033[0m\n" "$USB_DEV" " "
         printf "\033[31m│ This will ERASE ALL DATA on the USB drive                             │\033[0m\n"
         printf "\033[31m└────────────────────────────────────────────────────────────────────────┘\033[0m\n"
         echo ""
