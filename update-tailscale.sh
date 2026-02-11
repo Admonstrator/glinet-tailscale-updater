@@ -926,10 +926,14 @@ setup_usb_storage() {
     # Create mount point and mount
     log "INFO" "Creating mount point and mounting USB..."
     mkdir -p "$USB_MOUNT_POINT"
-    mount -t ext4 "$USB_DEV" "$USB_MOUNT_POINT"
+    if ! mount -t ext4 "$USB_DEV" "$USB_MOUNT_POINT"; then
+        log "ERROR" "Failed to mount USB device $USB_DEV to $USB_MOUNT_POINT"
+        log "ERROR" "Check if the device is properly formatted and not in use"
+        exit 1
+    fi
 
     if ! mount | grep -q "$USB_MOUNT_POINT"; then
-        log "ERROR" "Failed to mount USB"
+        log "ERROR" "Failed to verify USB mount at $USB_MOUNT_POINT"
         exit 1
     fi
 
