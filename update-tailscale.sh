@@ -1128,6 +1128,7 @@ install_tailscale_usb() {
     chmod +x "$USB_MOUNT_POINT/bin/tailscaled"
 
     # Create symlinks in /usr/sbin to USB binaries
+    rm -f /usr/sbin/tailscale /usr/sbin/tailscaled
     ln -sf "$USB_MOUNT_POINT/bin/tailscale" /usr/sbin/tailscale
     ln -sf "$USB_MOUNT_POINT/bin/tailscaled" /usr/sbin/tailscaled
 
