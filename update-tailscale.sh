@@ -1009,6 +1009,7 @@ start_service() {
 
     # Recreate symlinks to ensure they point to USB
     if [ -f /mnt/usb_tailscale/bin/tailscaled ]; then
+        rm -f /usr/sbin/tailscale /usr/sbin/tailscaled
         ln -sf /mnt/usb_tailscale/bin/tailscale /usr/sbin/tailscale
         ln -sf /mnt/usb_tailscale/bin/tailscaled /usr/sbin/tailscaled
     else
