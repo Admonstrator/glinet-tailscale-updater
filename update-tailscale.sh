@@ -1076,6 +1076,7 @@ install_tiny_tailscale_usb() {
     ln -sf "$USB_MOUNT_POINT/bin/tailscaled" "$USB_MOUNT_POINT/bin/tailscale"
 
     # Create symlinks in /usr/sbin to USB binaries
+    rm -f /usr/sbin/tailscale /usr/sbin/tailscaled
     ln -sf "$USB_MOUNT_POINT/bin/tailscale" /usr/sbin/tailscale
     ln -sf "$USB_MOUNT_POINT/bin/tailscaled" /usr/sbin/tailscaled
 
