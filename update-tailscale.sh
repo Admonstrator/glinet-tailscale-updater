@@ -797,7 +797,6 @@ choose_release_label() {
 # USB Installation Functions
 detect_usb_device() {
     log "INFO" "Searching for USB device..."
-    sleep 2
 
     for dev in /dev/sda1 /dev/sda /dev/sdb1 /dev/sdb; do
         if [ -b "$dev" ]; then
