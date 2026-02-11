@@ -847,8 +847,14 @@ setup_usb_storage() {
 
     # Install required packages
     log "INFO" "Installing required packages for USB support..."
-    opkg update
-    opkg install block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4
+    if ! opkg update; then
+        log "ERROR" "Failed to update package lists"
+        exit 1
+    fi
+    if ! opkg install block-mount e2fsprogs kmod-usb-storage kmod-fs-ext4; then
+        log "ERROR" "Failed to install required packages"
+        exit 1
+    fi
 
     log "INFO" "Verifying e2fsprogs installation..."
     if ! command -v mke2fs >/dev/null; then
