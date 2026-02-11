@@ -999,11 +999,21 @@ start_service() {
             mkdir -p /mnt/usb_tailscale
             mount LABEL=tailscale /mnt/usb_tailscale 2>/dev/null
             sleep 2
+            # Verify mount succeeded
+            if ! mount | grep -q "/mnt/usb_tailscale"; then
+                logger -t tailscale "ERROR: Failed to mount USB by label"
+                return 1
+            fi
         # Fallback to common device paths
         elif [ -b /dev/sda1 ]; then
             mkdir -p /mnt/usb_tailscale
             mount -t ext4 /dev/sda1 /mnt/usb_tailscale 2>/dev/null
             sleep 2
+            # Verify mount succeeded
+            if ! mount | grep -q "/mnt/usb_tailscale"; then
+                logger -t tailscale "ERROR: Failed to mount USB from /dev/sda1"
+                return 1
+            fi
         fi
     fi
 
