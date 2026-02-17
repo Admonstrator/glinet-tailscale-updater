@@ -1,6 +1,16 @@
 name: Build smaller Tailscale binary
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Specific Tailscale version tag to build (e.g. v1.68.0). Leave empty to use latest.'
+        required: false
+        type: string
+      force_build:
+        description: 'Force build even if versions match'
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: '0 3 * * *'
 env:
@@ -21,9 +31,14 @@ jobs:
       - name: Get latest ${{ env.SOFTWARE_NAME }} tag
         id: tag
         run: |
-          latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/releases/latest" | jq -r '.tag_name // empty')
+          if [ -n "${{ inputs.version }}" ]; then
+            latest_tag="${{ inputs.version }}"
+            echo "Using manually specified version: $latest_tag"
+          else
+            latest_tag=$(curl -s "https://api.github.com/repos/${{ env.REPO }}/releases/latest" | jq -r '.tag_name // empty')
+            echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
+          fi
           echo "TAG=$latest_tag" >> "$GITHUB_OUTPUT"
-          echo "Latest ${{ env.SOFTWARE_NAME }} Tag: $latest_tag"
       - name: Get latest ${{ env.SOFTWARE_NAME }} Small tag
         id: tag_small
         run: |
@@ -38,7 +53,7 @@ jobs:
     permissions:
       contents: write
     needs: check-versions
-    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     strategy:
@@ -131,7 +146,7 @@ jobs:
     needs:
       - build
       - check-versions
-    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG
+    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     steps:
