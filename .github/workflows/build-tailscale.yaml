@@ -214,7 +214,7 @@ jobs:
             git push --tags
           fi
       - name: Create Release
-        if: github.ref == 'refs/tags/${{ env.TAG }}'
+        if: ${{ github.ref == format('refs/tags/{0}', env.TAG) }}
         uses: ncipollo/release-action@v1
         with:
           name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
