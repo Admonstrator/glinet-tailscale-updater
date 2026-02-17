@@ -202,7 +202,9 @@ jobs:
         with:
           path: tools
           repository: ${{ env.REPO_SMALL }}
+          fetch-tags: true
       - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
+        if: github.event_name == 'schedule'
         run: |
           cd tools
           if git rev-parse --quiet --verify "refs/tags/${{ env.TAG }}"; then
@@ -214,7 +216,6 @@ jobs:
             git push --tags
           fi
       - name: Create Release
-        if: ${{ github.ref == format('refs/tags/{0}', env.TAG) }}
         uses: ncipollo/release-action@v1
         with:
           name: Small ${{ env.SOFTWARE_NAME }} ${{ env.TAG }}
