@@ -27,6 +27,7 @@ jobs:
     outputs:
       TAG: ${{ steps.tag.outputs.TAG }}
       TAG_SMALL: ${{ steps.tag_small.outputs.TAG_SMALL }}
+      SHOULD_BUILD: ${{ steps.compare.outputs.SHOULD_BUILD }}
     steps:
       - name: Get latest ${{ env.SOFTWARE_NAME }} tag
         id: tag
@@ -48,12 +49,38 @@ jobs:
           )
           echo "TAG_SMALL=$latest_tag_small" >> "$GITHUB_OUTPUT"
           echo "Latest ${{ env.SOFTWARE_NAME }} Small Tag: $latest_tag_small"
+      - name: Compare upstream and local tags
+        id: compare
+        run: |
+          upstream_tag="${{ steps.tag.outputs.TAG }}"
+          local_tag="${{ steps.tag_small.outputs.TAG_SMALL }}"
+
+          should_build="false"
+
+          if [ -z "$upstream_tag" ]; then
+            echo "No upstream tag detected. Skipping build."
+          elif [ -z "$local_tag" ]; then
+            echo "No local release tag found. Build is required."
+            should_build="true"
+          elif [ "$upstream_tag" = "$local_tag" ]; then
+            echo "Tags are equal ($upstream_tag). Skipping build."
+          else
+            newest_tag=$(printf '%s\n%s\n' "$local_tag" "$upstream_tag" | sort -V | tail -n 1)
+            if [ "$newest_tag" = "$upstream_tag" ]; then
+              echo "Upstream tag ($upstream_tag) is newer than local tag ($local_tag)."
+              should_build="true"
+            else
+              echo "Local tag ($local_tag) is newer than upstream tag ($upstream_tag). Skipping build."
+            fi
+          fi
+
+          echo "SHOULD_BUILD=$should_build" >> "$GITHUB_OUTPUT"
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     needs: check-versions
-    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
+    if: needs.check-versions.outputs.SHOULD_BUILD == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     strategy:
@@ -146,7 +173,7 @@ jobs:
     needs:
       - build
       - check-versions
-    if: needs.check-versions.outputs.TAG_SMALL != needs.check-versions.outputs.TAG || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
+    if: needs.check-versions.outputs.SHOULD_BUILD == 'true' || (github.event_name == 'workflow_dispatch' && (inputs.force_build || inputs.version != ''))
     env:
       TAG: ${{ needs.check-versions.outputs.TAG }}
     steps:
