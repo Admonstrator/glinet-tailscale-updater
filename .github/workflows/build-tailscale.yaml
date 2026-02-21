@@ -128,7 +128,7 @@ jobs:
           echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
           # Prepare feature set for smaller binary
           # 1. CORE & NETWORKING                                             
-          KEEP="dns,osrouter,iptables,netstack,health,logtail,portmapper,usermetrics,useroutes"
+          KEEP="dns,osrouter,iptables,netstack,health,logtail,portmapper,usermetrics,useroutes,cli"
           # 2. ROUTING & NODES
           KEEP="${KEEP},advertiseexitnode,useexitnode,advertiseroutes"                           
           KEEP="${KEEP},clientmetrics,cliconndiag,doctor"
