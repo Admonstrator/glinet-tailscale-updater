@@ -190,7 +190,7 @@ If you agree to enable Tailscale SSH during installation (manually or by using `
 
 By default, the script uses optimized tiny binaries that:
 - 🔹 Significantly reduce storage footprint
-- 🔹 Maintain full functionality
+- 🔹 Maintain useful functionality for routers
 - 🔹 Skip UPX compression (already optimized)
 - 🔹 Are recommended for all GL.iNet routers
 
