@@ -126,23 +126,22 @@ jobs:
           
           echo "Original Tailscale version: ${VERSION_SHORT}"
           echo "Custom build version: ${VERSION_SHORT_CUSTOM}"
-          
-          # Generate small binary tags by removing unneeded features for routers
-          # Keep essential features like DNS, routes, exit nodes, health, peerapiclient/server, etc.
-          # Remove desktop/enterprise features that aren't needed on routers
-          FEATURES_TO_REMOVE="ace,aws,bird,capture,cloud"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},completion,debugeventbus,debugportmapper,desktop_sessions"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},drive,identityfederation,kube,linkspeed,linuxdnsfight"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},netlog,networkmanager,oauthkey,outboundproxy,posture"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},relayserver,resolved,sdnotify,synology"
-          FEATURES_TO_REMOVE="${FEATURES_TO_REMOVE},syspolicy,systray,taildrop,tap,tpm,wakeonlan,webclient"
-          SMALL_TAGS=$(go run ./cmd/featuretags --remove="${FEATURES_TO_REMOVE}")
-          # Add ts_include_cli for combined binary support and unixsocketidentity for LocalAPI access control
-          BUILD_TAGS="${SMALL_TAGS},ts_include_cli,osrouter,unixsocketidentity"
-          
+          # Prepare feature set for smaller binary
+          # 1. CORE & NETWORKING                                             
+          KEEP="dns,osrouter,iptables,netstack,health,logtail,portmapper,usermetrics,useroutes,cli"
+          # 2. ROUTING & NODES
+          KEEP="${KEEP},advertiseexitnode,useexitnode,advertiseroutes"                           
+          KEEP="${KEEP},clientmetrics,cliconndiag,doctor"
+          # 4. SECURITY & AUTH
+          KEEP="${KEEP},acme,bakedroots,tailnetlock,unixsocketidentity"
+          # 5. EXTRA                                         
+          KEEP="${KEEP},appconnectors,cachenetmap,colorable,conn25,debug,gro"        
+          KEEP="${KEEP},hujsonconf,lazywg,listenrawdisco,portlist,serve,ssh,useproxy,relayserver"
+          # Finalize build tags
+          BUILD_TAGS=$(go run ./cmd/featuretags --min --add="${KEEP}")
           # Set ldflags with custom version info and stripping
           LDFLAGS="-w -s -X tailscale.com/version.longStamp=${VERSION_LONG_CUSTOM} -X tailscale.com/version.shortStamp=${VERSION_SHORT_CUSTOM}"
-          
+
           # Build the binary
           if [[ "${{ matrix.platform }}" == "mipsle" ]]; then
             CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.platform }} GOMIPS=softfloat \
